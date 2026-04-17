@@ -1,0 +1,12 @@
+DESCRIBE_CLUSTER
+
+Write a one-sentence description that routes queries TO this cluster
+and AWAY FROM the neighbors. Focus on the discriminating axis.
+
+MEMBERS:
+{members}
+
+NEIGHBORS:
+{neighbors}
+
+Return a single sentence, no quotes.

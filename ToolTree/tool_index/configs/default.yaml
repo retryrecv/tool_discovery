@@ -1,0 +1,24 @@
+enricher_llm: fake
+labeler_llm: fake
+judge_llm: fake
+embedding_model: fake
+embedding_dim: 64
+
+fanout:
+  domain: [2, 20]
+  category: [2, 10]
+  group: [2, 10]
+  tool: [3, 8]
+
+thresholds:
+  near_dup: 0.97
+  group: 0.3
+  category: 0.45
+  domain: 0.7
+  discriminability: 0.4
+  min_recall: 0.6
+
+enrich_batch_size: 20
+synthetic_queries_per_tool: 5
+recall_k: 30
+cache_dir: data/cache

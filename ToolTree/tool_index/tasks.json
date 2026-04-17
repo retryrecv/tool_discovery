@@ -1,0 +1,304 @@
+[
+  {
+    "id": "package-installs",
+    "priority": 1,
+    "category": "infrastructure",
+    "description": "tool_index package installs in editable mode and is importable",
+    "depends_on": [],
+    "steps": [
+      "Run pip install -e . from tool_index/",
+      "Run python -c 'import tool_index; print(tool_index.__name__)'",
+      "Verify output is tool_index with no ImportError"
+    ],
+    "passes": false
+  },
+  {
+    "id": "config-loader-reads-default-yaml",
+    "priority": 2,
+    "category": "infrastructure",
+    "description": "config.loader loads configs/default.yaml into a typed PipelineConfig",
+    "depends_on": ["package-installs"],
+    "steps": [
+      "Run python -c 'from tool_index.config import default_config; c = default_config(); print(c)'",
+      "Verify no exception and the returned object exposes pipeline/cluster/validation sections"
+    ],
+    "passes": false
+  },
+  {
+    "id": "fake-providers-available",
+    "priority": 3,
+    "category": "infrastructure",
+    "description": "providers.llm_fake and providers.embedding_fake instantiate without network",
+    "depends_on": ["package-installs"],
+    "steps": [
+      "Run python -c 'from tool_index.providers.llm_fake import FakeLLM; from tool_index.providers.embedding_fake import FakeEmbedder; FakeLLM(); FakeEmbedder()'",
+      "Verify no exception and both classes construct with default args"
+    ],
+    "passes": false
+  },
+  {
+    "id": "cli-build-command-registered",
+    "priority": 4,
+    "category": "infrastructure",
+    "description": "python -m tool_index build --help prints usage",
+    "depends_on": ["package-installs"],
+    "steps": [
+      "Run python -m tool_index build --help",
+      "Verify exit code 0 and output contains --config, --input, --output flags"
+    ],
+    "passes": false
+  },
+  {
+    "id": "stage1-normalize-raw-tools",
+    "priority": 5,
+    "category": "functional",
+    "description": "Stage 1 normalizes raw tool dicts into ToolDescriptor objects and dedupes",
+    "depends_on": ["fake-providers-available"],
+    "steps": [
+      "Load tests/fixtures/mini_tools.json",
+      "Call pipeline.stage1_normalize.normalize_and_dedupe with the raw list",
+      "Verify every returned item is a ToolDescriptor with a stable id",
+      "Verify duplicate input rows collapse to a single descriptor"
+    ],
+    "passes": false
+  },
+  {
+    "id": "stage2-enrich-adds-intent-and-io",
+    "priority": 6,
+    "category": "functional",
+    "description": "Stage 2 enriches each descriptor with intent phrase, IO kinds, synonyms, examples",
+    "depends_on": ["stage1-normalize-raw-tools"],
+    "steps": [
+      "Run stage2_enrich.enrich_descriptors on the Stage 1 output with FakeLLM",
+      "Verify each returned ToolDescriptor has enrichment.intent, io_kinds, synonyms, examples populated"
+    ],
+    "passes": false
+  },
+  {
+    "id": "stage3-leaf-clustering",
+    "priority": 7,
+    "category": "functional",
+    "description": "Stage 3 groups enriched tools into L3 leaf clusters via HDBSCAN/agglomerative fallback",
+    "depends_on": ["stage2-enrich-adds-intent-and-io"],
+    "steps": [
+      "Run stage3_cluster_leaves.cluster_leaves with FakeEmbedder on enriched tools",
+      "Verify every tool is assigned to exactly one L3 cluster id",
+      "Verify cluster sizes fall within configured min/max bounds after rebalance"
+    ],
+    "passes": false
+  },
+  {
+    "id": "stage4-upward-clustering-to-l1",
+    "priority": 8,
+    "category": "functional",
+    "description": "Stage 4 clusters L3 → L2 → L1 based on child description embeddings",
+    "depends_on": ["stage3-leaf-clustering"],
+    "steps": [
+      "Run stage4_cluster_upward.cluster_upward on L3 clusters",
+      "Verify output has distinct L1 and L2 levels with parent pointers",
+      "Verify every L3 cluster has an L2 parent and every L2 has an L1 parent"
+    ],
+    "passes": false
+  },
+  {
+    "id": "labeling-produces-contrastive-descriptions",
+    "priority": 9,
+    "category": "functional",
+    "description": "labeling.contrastive and labeling.describe produce node titles/descriptions via LLM",
+    "depends_on": ["stage4-upward-clustering-to-l1"],
+    "steps": [
+      "Run labeling.describe.describe_node on a cluster with FakeLLM",
+      "Verify the returned node has a non-empty title and description",
+      "Run labeling.contrastive.contrastive_refine on sibling clusters and verify titles differ"
+    ],
+    "passes": false
+  },
+  {
+    "id": "stage5-structural-validation",
+    "priority": 10,
+    "category": "functional",
+    "description": "Stage 5 structural validator checks parent/child integrity and depth bounds",
+    "depends_on": ["stage4-upward-clustering-to-l1"],
+    "steps": [
+      "Build a tree via Stages 1–4 on mini_tools",
+      "Run validation.structural.validate_structure on the tree",
+      "Verify it returns a report with errors=[] for a well-formed tree"
+    ],
+    "passes": false
+  },
+  {
+    "id": "stage5-sibling-discriminability",
+    "priority": 11,
+    "category": "functional",
+    "description": "Stage 5 sibling discriminability check flags overlapping sibling descriptions",
+    "depends_on": ["stage5-structural-validation"],
+    "steps": [
+      "Run validation.discriminability.check_siblings on a built tree",
+      "Verify it returns per-parent cosine-similarity scores for sibling titles",
+      "Verify scores below the configured threshold produce warnings in the report"
+    ],
+    "passes": false
+  },
+  {
+    "id": "stage5-synthetic-recall-benchmark",
+    "priority": 12,
+    "category": "functional",
+    "description": "Stage 5 generates synthetic queries and measures recall@k against the tree",
+    "depends_on": ["stage5-structural-validation"],
+    "steps": [
+      "Run validation.synthetic_queries.generate on the tree with FakeLLM",
+      "Run validation.recall_benchmark.evaluate with the generated queries",
+      "Verify the report contains recall@1, recall@5, recall@10 numeric values"
+    ],
+    "passes": false
+  },
+  {
+    "id": "stage6-freeze-snapshot",
+    "priority": 13,
+    "category": "functional",
+    "description": "Stage 6 writes an immutable versioned snapshot with tree.json, build_trace.json, seed_eval_set.jsonl",
+    "depends_on": ["stage5-structural-validation"],
+    "steps": [
+      "Run stage6_freeze.freeze on a validated tree with out_root=<tmp>/snapshots",
+      "Verify <tmp>/snapshots/<version>/tree.json exists",
+      "Verify <tmp>/snapshots/<version>/build_trace.json exists",
+      "Verify <tmp>/snapshots/<version>/seed_eval_set.jsonl exists"
+    ],
+    "passes": false
+  },
+  {
+    "id": "retrieval-traverser-routes-query",
+    "priority": 14,
+    "category": "functional",
+    "description": "retrieval.traverser descends L1 → L2 → L3 → tool for a query and returns candidate tools",
+    "depends_on": ["stage6-freeze-snapshot"],
+    "steps": [
+      "Load a frozen snapshot with storage.snapshot.load",
+      "Run retrieval.traverser.traverse with query='read a user row' and k=5",
+      "Verify returned list has ≤5 ToolDescriptors and includes db_users_read"
+    ],
+    "passes": false
+  },
+  {
+    "id": "orchestrator-end-to-end-mini",
+    "priority": 15,
+    "category": "functional",
+    "description": "pipeline.orchestrator.build_tree_index runs all six stages on mini_tools and returns a valid tree",
+    "depends_on": [
+      "stage1-normalize-raw-tools",
+      "stage2-enrich-adds-intent-and-io",
+      "stage3-leaf-clustering",
+      "stage4-upward-clustering-to-l1",
+      "stage5-structural-validation",
+      "stage6-freeze-snapshot"
+    ],
+    "steps": [
+      "Run build_tree_index(mini_tools, default_config(), out_root=<tmp>/snapshots, strict=False)",
+      "Verify returned tree.depth() is 4 or 5",
+      "Verify every non-root node has a parent_id that resolves in tree.nodes_by_id",
+      "Verify every tool id is reachable by walking root→children"
+    ],
+    "passes": false
+  },
+  {
+    "id": "cli-build-writes-snapshot",
+    "priority": 16,
+    "category": "functional",
+    "description": "python -m tool_index build end-to-end writes a snapshot directory",
+    "depends_on": ["orchestrator-end-to-end-mini", "cli-build-command-registered"],
+    "steps": [
+      "Run python -m tool_index build --config configs/default.yaml --input tests/fixtures/mini_tools.json --output <tmp>/snapshots",
+      "Verify exit code 0",
+      "Verify <tmp>/snapshots/<version>/tree.json exists and parses as JSON"
+    ],
+    "passes": false
+  },
+  {
+    "id": "determinism-stable-ids-and-hashes",
+    "priority": 17,
+    "category": "edge-case",
+    "description": "utils.ids and utils.hashing produce identical output across runs for identical inputs",
+    "depends_on": ["package-installs"],
+    "steps": [
+      "Run utils.hashing.stable_hash on the same dict twice and verify equal",
+      "Run utils.ids.tool_id on the same descriptor twice and verify equal",
+      "Build the tree twice with the same seed and verify tree.version matches"
+    ],
+    "passes": false
+  },
+  {
+    "id": "noise-tools-assigned-by-knn",
+    "priority": 18,
+    "category": "edge-case",
+    "description": "clustering.noise_handling reassigns HDBSCAN noise points to nearest cluster",
+    "depends_on": ["stage3-leaf-clustering"],
+    "steps": [
+      "Construct an embedding set where HDBSCAN marks some points as noise (label=-1)",
+      "Run noise_handling.reassign_noise",
+      "Verify no point retains label=-1 in the output"
+    ],
+    "passes": false
+  },
+  {
+    "id": "rebalance-splits-oversize-clusters",
+    "priority": 19,
+    "category": "edge-case",
+    "description": "clustering.rebalance splits clusters exceeding max_size and merges undersize ones",
+    "depends_on": ["stage3-leaf-clustering"],
+    "steps": [
+      "Run clustering.rebalance.rebalance on a cluster assignment with an oversize cluster",
+      "Verify no output cluster exceeds the configured max_size",
+      "Verify no output cluster is smaller than min_size (or is merged into a sibling)"
+    ],
+    "passes": false
+  },
+  {
+    "id": "normalize-rejects-missing-required-fields",
+    "priority": 20,
+    "category": "error-handling",
+    "description": "Stage 1 raises on raw tool dicts missing name or signature",
+    "depends_on": ["stage1-normalize-raw-tools"],
+    "steps": [
+      "Call normalize_and_dedupe with [{'doc': 'no name'}]",
+      "Verify a ValidationError (or equivalent) is raised mentioning the missing field"
+    ],
+    "passes": false
+  },
+  {
+    "id": "orchestrator-strict-mode-raises-on-validation-failure",
+    "priority": 21,
+    "category": "error-handling",
+    "description": "build_tree_index(strict=True) raises ValidationError when Stage 5 reports errors",
+    "depends_on": ["orchestrator-end-to-end-mini"],
+    "steps": [
+      "Construct an input guaranteed to produce a structural violation (e.g. one tool)",
+      "Run build_tree_index(..., strict=True)",
+      "Verify ValidationError is raised and no snapshot is written"
+    ],
+    "passes": false
+  },
+  {
+    "id": "unit-tests-pass",
+    "priority": 22,
+    "category": "functional",
+    "description": "All unit tests under tests/unit/ pass",
+    "depends_on": ["package-installs"],
+    "steps": [
+      "Run pytest tests/unit/ -x from tool_index/",
+      "Verify exit code 0 and no failures"
+    ],
+    "passes": false
+  },
+  {
+    "id": "integration-test-mini-pipeline-passes",
+    "priority": 23,
+    "category": "functional",
+    "description": "tests/integration/test_pipeline_mini.py passes end-to-end",
+    "depends_on": ["orchestrator-end-to-end-mini"],
+    "steps": [
+      "Run pytest tests/integration/test_pipeline_mini.py -x from tool_index/",
+      "Verify exit code 0"
+    ],
+    "passes": false
+  }
+]

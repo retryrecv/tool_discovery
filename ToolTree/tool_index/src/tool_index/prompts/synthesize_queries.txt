@@ -1,0 +1,9 @@
+SYNTHESIZE_QUERIES
+
+Given a tool's intent, produce N plausible user queries that should route
+to it. Vary phrasing.
+
+INTENT: {intent}
+N: {n}
+
+Return a JSON array of strings.

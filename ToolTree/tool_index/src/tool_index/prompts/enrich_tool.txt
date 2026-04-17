@@ -1,0 +1,14 @@
+ENRICH_TOOL
+
+You are given a single tool. Produce a strict JSON object with:
+  intent_phrase: one short phrase describing what the tool does
+  input_kind: what the tool takes as input
+  output_kind: what the tool returns
+  synonyms: 3-5 synonym verbs for the action
+  example_queries: 5 diverse user-facing queries that should route to this tool
+
+NAME: {name}
+SIGNATURE: {signature}
+DOC: {doc}
+
+Return ONLY the JSON object. No prose.
