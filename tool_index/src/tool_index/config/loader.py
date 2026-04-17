@@ -13,7 +13,7 @@ from typing import Any
 
 import yaml
 
-from ..providers import make_llm, make_embedding, DiskCache
+from ..providers import make_llm, make_embedding, DiskCache, LLMProvider, EmbeddingProvider
 
 
 @dataclass
@@ -79,11 +79,11 @@ class Config:
     # --- Instantiated providers, filled in by `build_providers()` ---
     # Typed as `Any` because Protocol types don't play well with dataclass
     # defaults; the actual types are `LLMProvider` / `EmbeddingProvider`.
-    enricher_llm: Any = None
-    labeler_llm: Any = None
-    judge_llm: Any = None
-    embedder: Any = None
-    cache: Any = None
+    enricher_llm: LLMProvider = None
+    labeler_llm: LLMProvider = None
+    judge_llm: LLMProvider = None
+    embedder: EmbeddingProvider = None
+    cache: DiskCache = None
 
     def build_providers(self) -> None:
         """Instantiate the four providers + cache from their ``_kind`` selectors.

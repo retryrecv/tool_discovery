@@ -21,7 +21,7 @@ from pathlib import Path
 
 from tool_index.config import Config
 from tool_index.pipeline import build_tree_index
-from tool_index.providers import DiskCache, make_embedding
+from tool_index.providers import DiskCache, make_embedding, EmbeddingProvider
 from tool_index.providers.llm_anthropic import AnthropicLLMProvider
 
 
@@ -34,7 +34,7 @@ PROXY_API_KEY = "***REDACTED***"
 MODEL = "claude-haiku-4-5-20251001"
 
 
-def _pick_embedder():
+def _pick_embedder() -> tuple[EmbeddingProvider, str]:
     """Prefer Azure OpenAI when the env is configured, fall back to fake.
 
     Returns a tuple ``(embedder, description)`` where ``description`` is

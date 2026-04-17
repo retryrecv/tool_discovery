@@ -11,10 +11,21 @@ Two dedupe passes run back-to-back:
 Output is the single source of truth for every later stage.
 """
 from __future__ import annotations
+from typing import TypedDict
+
 import numpy as np
 
 from ..schema import ToolDescriptor
 from ..utils.ids import new_id
+
+
+class RawToolEntry(TypedDict, total=False):
+    id: str
+    name: str
+    signature: str
+    description: str
+    source: str
+    examples: list[str]
 
 
 def _infer_side_effect(doc: str, name: str) -> str:
@@ -37,7 +48,7 @@ def _infer_side_effect(doc: str, name: str) -> str:
     return "compute"
 
 
-def _parse_one(raw: dict) -> ToolDescriptor:
+def _parse_one(raw: RawToolEntry) -> ToolDescriptor:
     """Convert one raw catalog entry to a `ToolDescriptor`.
 
     Accepts several common field-name aliases so catalogs from different
@@ -45,19 +56,18 @@ def _parse_one(raw: dict) -> ToolDescriptor:
     explicit ``id`` is provided, one is derived from ``name + signature``
     — making re-runs on the same catalog produce identical IDs.
     """
-    # Field aliases: name/tool/id, signature/sig/schema, doc/description/summary.
-    name = raw.get("name") or raw.get("tool") or raw.get("id") or "unnamed"
-    signature = raw.get("signature") or raw.get("sig") or raw.get("schema") or ""
-    doc = raw.get("doc") or raw.get("description") or raw.get("summary") or ""
-    source = raw.get("source") or raw.get("origin") or ""
-    examples = raw.get("examples") or raw.get("example_calls") or []
+    name = raw["name"]
+    signature = raw["signature"]
+    doc = raw["description"]
+    source = raw.get("source", "")
+    examples = list(raw.get("examples", []))
     tid = raw.get("id") or new_id("tool", f"{name}:{signature}")
     return ToolDescriptor(
         id=tid,
         name=name,
-        signature=str(signature),
+        signature=signature,
         original_doc=doc,
-        example_calls=list(examples),
+        example_calls=examples,
         side_effect_class=_infer_side_effect(doc, name),
         source=source,
     )
@@ -114,7 +124,7 @@ def _dedupe_near(
 
 
 def normalize_and_dedupe(
-    raw_tools: list[dict],
+    raw_tools: list[RawToolEntry],
     embedder,
     near_dup_threshold: float,
 ) -> list[ToolDescriptor]:

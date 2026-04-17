@@ -4,7 +4,7 @@ from .llm_fake import FakeLLMProvider
 from .embedding_fake import FakeEmbeddingProvider
 
 
-def make_llm(kind: str, **kwargs):
+def make_llm(kind: str, **kwargs) -> LLMProvider:
     if kind == "fake":
         return FakeLLMProvider(**kwargs)
     if kind == "anthropic":
@@ -13,7 +13,7 @@ def make_llm(kind: str, **kwargs):
     raise ValueError(f"unknown llm kind: {kind}")
 
 
-def make_embedding(kind: str, **kwargs):
+def make_embedding(kind: str, **kwargs) -> EmbeddingProvider:
     if kind == "fake":
         return FakeEmbeddingProvider(**kwargs)
     if kind == "openai":

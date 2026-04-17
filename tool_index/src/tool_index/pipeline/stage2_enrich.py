@@ -13,13 +13,15 @@ import json
 
 from ..schema import ToolDescriptor, Enrichment
 from ..utils.batching import chunks
+from ..providers import LLMProvider, DiskCache
+
 from .. import prompts as prompt_pkg
 
 
 def enrich_all(
     descriptors: list[ToolDescriptor],
-    llm,
-    cache=None,
+    llm: LLMProvider,
+    cache: DiskCache | None = None,
     batch_size: int = 20,
 ) -> dict[str, Enrichment]:
     """Produce one `Enrichment` per descriptor, keyed by tool ID.

@@ -17,8 +17,10 @@ Stage flow:
 """
 from __future__ import annotations
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 from ..schema import Tree, Node, LEVEL_ROOT, LEVEL_DOMAIN, LEVEL_CATEGORY, LEVEL_GROUP
+from ..config.loader import Config
 from ..utils.ids import new_id
 from ..utils.logging import get_logger
 
@@ -28,6 +30,20 @@ from .stage3_cluster_leaves import cluster_tools_into_groups
 from .stage4_cluster_upward import cluster_upward
 from .stage5_validate import validate_tree
 from .stage6_freeze import freeze
+
+
+class RawTool(TypedDict):
+    """One entry in the ``raw_tools`` list passed to `build_tree_index`.
+
+    All fields are optional — stage 1 fills missing ones with safe defaults
+    and accepts common field-name aliases (e.g. ``description`` for ``doc``).
+    """
+    name:      NotRequired[str]        # aliases: "tool", "id"
+    signature: NotRequired[str]        # aliases: "sig", "schema"
+    doc:       NotRequired[str]        # aliases: "description", "summary"
+    id:        NotRequired[str]        # derived from name+signature when absent
+    source:    NotRequired[str]        # alias: "origin"
+    examples:  NotRequired[list[dict]] # alias: "example_calls"
 
 log = get_logger(__name__)
 
@@ -53,8 +69,8 @@ def _register_all(tree: Tree, nodes: list[Node], parent_id: str) -> None:
 
 
 def build_tree_index(
-    raw_tools: list[dict],
-    config,
+    raw_tools: list[RawTool],
+    config: Config,
     *,
     out_root: str | Path = "data/snapshots",
     strict: bool = True,
