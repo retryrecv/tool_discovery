@@ -11,6 +11,9 @@ members = [
     "tool-index",
 ]
 
+[manifest.dependency-groups]
+dev = [{ name = "pytest", specifier = ">=9.0.3" }]
+
 [[package]]
 name = "annotated-types"
 version = "0.7.0"
