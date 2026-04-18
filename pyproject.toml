@@ -1,0 +1,2 @@
+[tool.uv.workspace]
+members = ["tool_index"]

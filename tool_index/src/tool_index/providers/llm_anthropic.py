@@ -13,6 +13,14 @@ to point at the local Agent Maestro proxy.
 """
 from __future__ import annotations
 import os
+import re
+
+_FENCE_RE = re.compile(r"^\s*```(?:json)?\s*\n?(.*?)\n?```\s*$", re.DOTALL | re.IGNORECASE)
+
+
+def _strip_code_fence(text: str) -> str:
+    m = _FENCE_RE.match(text)
+    return m.group(1) if m else text
 
 
 class AnthropicLLMProvider:
@@ -78,4 +86,4 @@ class AnthropicLLMProvider:
         )
         # Responses may contain non-text blocks (e.g. tool use); skip
         # those and join text blocks in arrival order.
-        return "".join(block.text for block in msg.content if getattr(block, "type", None) == "text")
+        return _strip_code_fence("".join(block.text for block in msg.content if getattr(block, "type", None) == "text"))

@@ -33,6 +33,7 @@ def validate_tree(
     synthetic_per_tool: int,
     recall_k: int,
     min_recall: float,
+    queries: list[dict] | None = None,
 ) -> ValidationReport:
     """Run all validators and return a populated report.
 
@@ -46,8 +47,9 @@ def validate_tree(
         labeler_llm: LLM that synthesizes eval queries from enrichments.
         fanout: Per-level ``{name: (min, max)}`` bounds from config.
         expected_depth: Depth the structural validator should check for.
-            Orchestrator passes ``tree.depth()`` so 3-level trees
-            (collapsed via stage 4b) aren't flagged as short.
+            The orchestrator passes the intended build shape: ``5`` for the
+            full root→domain→category→group→tool tree, or ``4`` when stage
+            4b legally collapses category into domain.
         discriminability_threshold: Score below which a sibling pair is
             considered indistinguishable. Warnings, not errors.
         synthetic_per_tool: Queries to generate per tool for the recall
@@ -64,7 +66,7 @@ def validate_tree(
     check_structural(tree, fanout, expected_depth, report)
     check_sibling_discriminability(tree, judge_llm, discriminability_threshold, report)
 
-    queries = generate_synthetic_queries(enrichments, labeler_llm, synthetic_per_tool)
+    queries = queries if queries is not None else generate_synthetic_queries(enrichments, labeler_llm, synthetic_per_tool)
     recall = run_retrieval_benchmark(tree, queries, embedder, recall_k)
     report.recall_at_k = recall
     # Store the eval set on the report so stage 6 can persist it.

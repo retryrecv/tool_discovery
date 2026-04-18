@@ -2,9 +2,10 @@ from .constants import LEVEL_ROOT, LEVEL_DOMAIN, LEVEL_CATEGORY, LEVEL_GROUP, LE
 from .descriptor import ToolDescriptor
 from .enrichment import Enrichment
 from .node import Node
+from .raw import RawTool
 from .tree import Tree, BuildTrace, ValidationReport
 
 __all__ = [
     "LEVEL_ROOT", "LEVEL_DOMAIN", "LEVEL_CATEGORY", "LEVEL_GROUP", "LEVEL_TOOL", "LEVEL_ORDER",
-    "ToolDescriptor", "Enrichment", "Node", "Tree", "BuildTrace", "ValidationReport",
+    "RawTool", "ToolDescriptor", "Enrichment", "Node", "Tree", "BuildTrace", "ValidationReport",
 ]

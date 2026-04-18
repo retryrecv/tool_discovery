@@ -17,9 +17,8 @@ Stage flow:
 """
 from __future__ import annotations
 from pathlib import Path
-from typing import NotRequired, TypedDict
 
-from ..schema import Tree, Node, LEVEL_ROOT, LEVEL_DOMAIN, LEVEL_CATEGORY, LEVEL_GROUP
+from ..schema import RawTool, Tree, Node, LEVEL_ROOT, LEVEL_DOMAIN, LEVEL_CATEGORY, LEVEL_GROUP
 from ..config.loader import Config
 from ..utils.ids import new_id
 from ..utils.logging import get_logger
@@ -31,19 +30,6 @@ from .stage4_cluster_upward import cluster_upward
 from .stage5_validate import validate_tree
 from .stage6_freeze import freeze
 
-
-class RawTool(TypedDict):
-    """One entry in the ``raw_tools`` list passed to `build_tree_index`.
-
-    All fields are optional — stage 1 fills missing ones with safe defaults
-    and accepts common field-name aliases (e.g. ``description`` for ``doc``).
-    """
-    name:      NotRequired[str]        # aliases: "tool", "id"
-    signature: NotRequired[str]        # aliases: "sig", "schema"
-    doc:       NotRequired[str]        # aliases: "description", "summary"
-    id:        NotRequired[str]        # derived from name+signature when absent
-    source:    NotRequired[str]        # alias: "origin"
-    examples:  NotRequired[list[dict]] # alias: "example_calls"
 
 log = get_logger(__name__)
 
@@ -66,6 +52,52 @@ def _register_all(tree: Tree, nodes: list[Node], parent_id: str) -> None:
     for n in nodes:
         n.parent_id = parent_id
         tree.register(n)
+
+
+def assemble_tree(
+    descriptors,
+    groups: list[Node],
+    categories: list[Node],
+    domains: list[Node],
+    categories_separate: bool,
+    embedder,
+) -> Tree:
+    """Wire stage-3/4 cluster output into a fully-registered `Tree`.
+
+    Shared by `build_tree_index` and `scripts/stage_cluster.py` so the
+    two paths cannot drift. Creates the synthetic L0 root, registers
+    every domain/category/group, and attaches `tools_by_id`.
+
+    Args:
+        descriptors: Stage-1 output; becomes ``tree.tools_by_id``.
+        groups: L3 nodes from stage 3.
+        categories: L2 nodes from stage 4a (may be the same list as
+            ``domains`` when stage 4b collapsed).
+        domains: L1 nodes from stage 4b.
+        categories_separate: True if stage 4b actually clustered (5-level
+            tree); False if it relabeled categories as domains (4-level).
+        embedder: Used to embed the synthetic root description.
+    """
+    root = Node(
+        id=new_id("root", "all"),
+        level=LEVEL_ROOT,
+        description="All tools",
+        embedding=embedder.embed("all tools"),
+        children=[d.id for d in domains],
+    )
+    tree = Tree(root=root, version="v0-draft")
+    tree.register(root)
+    _register_all(tree, domains, root.id)
+    if categories_separate:
+        for dom in domains:
+            _register_all(tree, [c for c in categories if c.id in dom.children], dom.id)
+        for cat in categories:
+            _register_all(tree, [g for g in groups if g.id in cat.children], cat.id)
+    else:
+        for dom in domains:
+            _register_all(tree, [g for g in groups if g.id in dom.children], dom.id)
+    tree.tools_by_id = {d.id: d for d in descriptors}
+    return tree
 
 
 def build_tree_index(
@@ -148,40 +180,22 @@ def build_tree_index(
     log.info("Stage 4b: %d domains", len(domains))
 
     # Assemble the tree — single synthetic root owns every L1 domain.
-    root = Node(
-        id=new_id("root", "all"),
-        level=LEVEL_ROOT,
-        description="All tools",
-        embedding=config.embedder.embed("all tools"),
-        children=[d.id for d in domains],
-    )
-    tree = Tree(root=root, version="v0-draft")
-    tree.register(root)
-    _register_all(tree, domains, root.id)
-
-    # Detect whether stage 4b collapsed L2→L1 (same list object) and skip
-    # registering categories separately if so — otherwise the tree would
-    # contain duplicate nodes at two levels.
+    # Detect whether stage 4b collapsed L2→L1 (same list object) so we
+    # don't register categories twice.
     categories_separate = categories is not domains
-    if categories_separate:
-        for dom in domains:
-            _register_all(tree, [c for c in categories if c.id in dom.children], dom.id)
-        for cat in categories:
-            _register_all(tree, [g for g in groups if g.id in cat.children], cat.id)
-    else:
-        for dom in domains:
-            _register_all(tree, [g for g in groups if g.id in dom.children], dom.id)
-    tree.tools_by_id = {d.id: d for d in descriptors}
+    tree = assemble_tree(descriptors, groups, categories, domains, categories_separate, config.embedder)
 
-    # Stage 5 — validate against the depth the tree *actually* reached, not
-    # the design-target depth, so 3-level trees aren't flagged as broken.
+    # Stage 5 — validate against the intended orchestrator shape. The build
+    # supports two valid depths:
+    #   5: root → domain → category → group → tool
+    #   4: root → domain(relabelled category) → group → tool
     log.info("Stage 5: validate")
-    actual_depth = tree.depth()
+    expected_depth = 5 if categories_separate else 4
     report = validate_tree(
         tree, enrichments, config.embedder, config.judge_llm,
         labeler_llm=config.labeler_llm,
         fanout=config.fanout,
-        expected_depth=actual_depth,
+        expected_depth=expected_depth,
         discriminability_threshold=config.thresholds["discriminability"],
         synthetic_per_tool=config.synthetic_queries_per_tool,
         recall_k=config.recall_k,

@@ -10,12 +10,15 @@ on a single malformed response.
 """
 from __future__ import annotations
 import json
+import re
 
 from ..schema import ToolDescriptor, Enrichment
 from ..utils.batching import chunks
 from ..providers import LLMProvider, DiskCache
 
 from .. import prompts as prompt_pkg
+
+_FENCE_RE = re.compile(r"^\s*```(?:json)?\s*\n?(.*?)\n?```\s*$", re.DOTALL | re.IGNORECASE)
 
 
 def enrich_all(
@@ -52,7 +55,8 @@ def enrich_all(
                 if cache is not None:
                     cache.put(llm.id, prompt, raw)
             try:
-                data = json.loads(raw)
+                m = _FENCE_RE.match(raw)
+                data = json.loads(m.group(1) if m else raw)
             except json.JSONDecodeError:
                 # Degraded fallback: the tool still gets *an* enrichment so
                 # clustering isn't blocked. Quality suffers, but the

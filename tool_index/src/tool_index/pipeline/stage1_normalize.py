@@ -11,7 +11,7 @@ Two dedupe passes run back-to-back:
 Output is the single source of truth for every later stage.
 """
 from __future__ import annotations
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 import numpy as np
 
@@ -19,14 +19,13 @@ from ..schema import ToolDescriptor
 from ..utils.ids import new_id
 
 
-class RawToolEntry(TypedDict, total=False):
-    id: str
+class RawToolEntry(TypedDict):
     name: str
     signature: str
-    description: str
-    source: str
-    examples: list[str]
-
+    doc: str
+    id: NotRequired[str]
+    source: NotRequired[str]
+    examples: NotRequired[list[dict]]
 
 def _infer_side_effect(doc: str, name: str) -> str:
     """Best-effort side-effect classification from name/doc keywords.
@@ -51,16 +50,18 @@ def _infer_side_effect(doc: str, name: str) -> str:
 def _parse_one(raw: RawToolEntry) -> ToolDescriptor:
     """Convert one raw catalog entry to a `ToolDescriptor`.
 
-    Accepts several common field-name aliases so catalogs from different
-    sources can be normalized without upstream transformation. If no
-    explicit ``id`` is provided, one is derived from ``name + signature``
-    — making re-runs on the same catalog produce identical IDs.
+    `RawToolEntry` is the accepted stage-1 input shape:
+    required ``name``, ``signature``, and ``doc`` fields plus optional
+    ``source``, ``examples``, and ``id``. If no explicit ``id`` is
+    provided, one is derived from ``name + signature`` — making re-runs
+    on the same catalog produce identical IDs.
     """
     name = raw["name"]
     signature = raw["signature"]
-    doc = raw["description"]
+    doc = raw["doc"]
     source = raw.get("source", "")
-    examples = list(raw.get("examples", []))
+    examples = raw.get("examples", [])
+
     tid = raw.get("id") or new_id("tool", f"{name}:{signature}")
     return ToolDescriptor(
         id=tid,

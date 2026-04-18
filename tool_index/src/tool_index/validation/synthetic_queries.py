@@ -10,9 +10,12 @@ Fallback: if the LLM returns invalid JSON, we reuse the enrichment's
 """
 from __future__ import annotations
 import json
+import re
 
 from ..schema import Enrichment
 from .. import prompts as prompt_pkg
+
+_FENCE_RE = re.compile(r"^\s*```(?:json)?\s*\n?(.*?)\n?```\s*$", re.DOTALL | re.IGNORECASE)
 
 
 def generate_synthetic_queries(
@@ -37,7 +40,8 @@ def generate_synthetic_queries(
         prompt = template.format(intent=enr.intent_phrase, n=per_tool)
         resp = llm.call(prompt, schema="synthesize_queries").strip()
         try:
-            queries = json.loads(resp)
+            m = _FENCE_RE.match(resp)
+            queries = json.loads(m.group(1) if m else resp)
         except json.JSONDecodeError:
             # Degraded fallback — the enrichment's example_queries were
             # generated from the same tool and are usually fine as eval

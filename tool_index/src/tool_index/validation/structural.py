@@ -21,8 +21,9 @@ def check_structural(tree: Tree, fanout: dict, expected_depth: int, report: Vali
     Args:
         tree: The assembled tree to check.
         fanout: Per-level ``{name: (min, max)}`` bounds from config.
-        expected_depth: Depth the tree should have. The orchestrator passes
-            ``tree.depth()`` so collapsed 3-level trees don't fail here.
+        expected_depth: Depth the tree should have for the orchestrator path
+            that produced it. Valid builds are either the full 5-level shape
+            or the sanctioned 4-level collapsed shape from stage 4b.
         report: Mutated with ``fail()``, ``warn()``, and ``details``.
     """
     seen_ids = set(tree.nodes_by_id)
@@ -69,5 +70,6 @@ def check_structural(tree: Tree, fanout: dict, expected_depth: int, report: Vali
 
     depth = tree.depth()
     report.details["depth"] = depth
+    report.details["expected_depth"] = expected_depth
     if depth != expected_depth:
         report.fail(f"tree depth {depth} != expected {expected_depth}")

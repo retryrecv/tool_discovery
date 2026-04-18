@@ -13,30 +13,41 @@ EMBEDDING_MODEL = os.environ.get("AZURE_EMBEDDINGS_DEPLOYMENT_NAME")
 print("RESPONSE_MODEL:", RESPONSE_MODEL)
 print("EMBEDDING_MODEL:", EMBEDDING_MODEL)
 
+openAIClient = AzureOpenAI(
+    api_key=os.environ.get("AZURE_OPENAI_API_KEY"),
+    azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT"),
+    api_version=os.environ.get("AZURE_OPENAI_API_VERSION"),
+)
 
-def build_client():
-    azure_endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
-    azure_api_version = os.environ.get("AZURE_OPENAI_API_VERSION")
-    azure_api_key = os.environ.get("AZURE_OPENAI_API_KEY")
+openAIEmbeddingClient = AzureOpenAI(
+    api_key=os.environ.get("AZURE_OPENAI_API_KEY"),
+    azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT"),
+    api_version=os.environ.get("AZURE_OPENAI_API_VERSION"),
+)
 
-    return AzureOpenAI(
-        api_key=azure_api_key,
-        azure_endpoint=azure_endpoint,
-        api_version=azure_api_version,
-    )
+
+# def build_client():
+#     azure_endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
+#     azure_api_version = os.environ.get("AZURE_OPENAI_API_VERSION")
+#     azure_api_key = os.environ.get("AZURE_OPENAI_API_KEY")
+
+#     return AzureOpenAI(
+#         api_key=azure_api_key,
+#         azure_endpoint=azure_endpoint,
+#         api_version=azure_api_version,
+#     )
 
 
 def main() -> int:
-    client = build_client()
 
-    response = client.responses.create(
+    response = openAIClient.responses.create(
         model=RESPONSE_MODEL,
         input="Reply with exactly: ok",
     )
     print("Responses request: PASS")
     print(f"Response text: {response.output_text}")
 
-    embedding = client.embeddings.create(
+    embedding = openAIEmbeddingClient.embeddings.create(
         model=EMBEDDING_MODEL,
         input="verify embedding request",
     )

@@ -1,11 +1,3 @@
-__pycache__/
-*.pyc
-*.egg-info/
-.pytest_cache/
-data/raw/*
 data/cache/*
+data/rawTools/*
 data/snapshots/*
-!data/raw/.gitkeep
-!data/cache/.gitkeep
-!data/snapshots/.gitkeep
-.env
