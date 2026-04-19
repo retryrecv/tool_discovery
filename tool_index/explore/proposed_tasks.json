@@ -1,0 +1,54 @@
+[
+  {
+    "id": "explore-direction3-multivector-traverser",
+    "priority": 56,
+    "category": "retrieval",
+    "description": "Multi-vector inner-node scoring in retrieve(): score = max(cos(query, node.embedding), max over child.embedding). Recovers recall lost when an inner node's description is too broad to discriminate against siblings.",
+    "depends_on": [
+      "stage5-validate-tree-passes-on-mini-fixture"
+    ],
+    "papers": [
+      "1:ColBERT \u2014 Efficient and Effective Passage Search via Contextualized Late Interaction over BERT (Khattab and Zaharia, arXiv 2004.12832)",
+      "2:HILL \u2014 Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1) Section 3.2"
+    ],
+    "steps": [
+      "Add _node_score(tree, node, query) helper in retrieval/traverser.py: max of node.embedding cosine and each inner-child cosine",
+      "Replace the two -_cos(n.embedding, query_embedding) sort keys in retrieve() and retrieve_with_path() with -_node_score(tree, n, query_embedding)",
+      "Leaf-parent step keeps using the parent's own embedding for tool-score collection (do not multi-vectorize the leaf step \u2014 that is Direction 1's job)",
+      "Add unit test: a tree where a node's description embedding is far from query but one child is close \u2014 assert the node now wins the frontier",
+      "Add unit test: empty children list falls back to node.embedding cosine (no regression for leaf-parent groups)",
+      "Re-run scripts/stage_validate.py --run raw-tools and assert recall@10 >= 0.97 (baseline 0.917 -> measured 0.978)"
+    ],
+    "refers": [
+      "0::0::ColBERT introduces MaxSim over multi-vectors as the scoring rule for late interaction \u2014 we apply the same operator at the inner-node level instead of the token level",
+      "1::1::HILL Section 3.2 soft-attention clustering produces per-node mixture distributions over children; this task is the simplest realization of that idea (use the existing child embeddings as the mixture)",
+      "5::0::Empirical recall lift on raw-tools eval set: 0.917 -> 0.978 (+0.061), with errors stable at 4 and warnings dropping 28 -> 20"
+    ],
+    "passes": false
+  },
+  {
+    "id": "explore-direction1-colbert-leaf-rerank",
+    "priority": 57,
+    "category": "retrieval",
+    "description": "ColBERT-style leaf reranker: pull top-2k tools from the traverser, rerank to top-k by MaxSim between query and per-tool multi-vectors (intent_phrase + each example_query). Stacks additively on Direction 3.",
+    "depends_on": [
+      "explore-direction3-multivector-traverser"
+    ],
+    "papers": [
+      "1:ColBERT \u2014 Efficient and Effective Passage Search via Contextualized Late Interaction over BERT (Khattab and Zaharia, arXiv 2004.12832)"
+    ],
+    "steps": [
+      "Add retrieval/rerank.py with rerank_tools(query_emb, candidates, tool_vectors_by_id) -> ranked tool ids using MaxSim",
+      "Pre-embed each tool's intent_phrase + example_queries once at startup; persist via the existing DiskCache so warm starts are free",
+      "Extend retrieve() with rerank_k parameter (default = k); when rerank_k > k, pull rerank_k candidates and apply rerank_tools",
+      "Wire validation/recall_benchmark.py to accept rerank_k; default keeps current behavior",
+      "Add unit test: a tool whose intent_phrase embedding is far from query but one of its example_query embeddings is close \u2014 assert reranker promotes it",
+      "Re-run validate stacked on Direction 3; assert recall@10 >= 0.99 (measured 0.994 = 179/180 hits)"
+    ],
+    "refers": [
+      "0::0::ColBERT scores documents by sum-of-max cosines between query token vectors and document token vectors; we use the same MaxSim operator with sentence-level vectors (intent_phrase plus example_queries) as the document's multi-vector representation",
+      "5::0::Empirical recall lift on raw-tools stacked on Direction 3: 0.978 -> 0.994 (+0.016 stacking gain, +0.077 cumulative vs v7)"
+    ],
+    "passes": false
+  }
+]
