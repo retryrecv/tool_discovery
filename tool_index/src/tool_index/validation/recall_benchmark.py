@@ -8,10 +8,18 @@ other validators check prerequisites.
 from __future__ import annotations
 
 from ..schema import Tree
-from ..retrieval import retrieve
+from ..retrieval import retrieve, rerank_tools
 
 
-def run_retrieval_benchmark(tree: Tree, queries: list[dict], embedder, k: int, beam: int = 2) -> float:
+def run_retrieval_benchmark(
+    tree: Tree,
+    queries: list[dict],
+    embedder,
+    k: int,
+    beam: int = 2,
+    rerank_k: int | None = None,
+    tool_vectors: dict[str, list[list[float]]] | None = None,
+) -> float:
     """Compute recall@k on the synthetic eval set.
 
     Args:
@@ -24,6 +32,12 @@ def run_retrieval_benchmark(tree: Tree, queries: list[dict], embedder, k: int, b
         k: Top-k depth. Smaller ``k`` is a stricter test.
         beam: Branching factor for the top-down traverser. Higher widens
             the search at each level — more recall, more compute.
+        rerank_k: When set, traverse for ``rerank_k`` candidates then
+            rerank to ``k`` via ``tool_vectors``. Must be >= ``k``.
+            Default ``None`` keeps existing behavior.
+        tool_vectors: ``{tool_id: [vec, ...]}`` from
+            ``retrieval.precompute_tool_vectors``. Required iff
+            ``rerank_k`` is set.
 
     Returns:
         Fraction of queries whose gold ``tool_id`` appeared in the top-k.
@@ -31,10 +45,13 @@ def run_retrieval_benchmark(tree: Tree, queries: list[dict], embedder, k: int, b
     """
     if not queries:
         return 1.0
+    pull = rerank_k if rerank_k is not None else k
     hits = 0
     for row in queries:
         q_emb = embedder.embed(row["query"])
-        candidates = retrieve(tree, q_emb, k=k, beam=beam)
-        if row["tool_id"] in candidates:
+        candidates = retrieve(tree, q_emb, k=pull, beam=beam)
+        if rerank_k is not None and tool_vectors is not None:
+            candidates = rerank_tools(q_emb, candidates, tool_vectors, k)
+        if row["tool_id"] in candidates[:k]:
             hits += 1
     return hits / len(queries)

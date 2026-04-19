@@ -1,3 +1,4 @@
+from .rerank import precompute_tool_vectors, rerank_tools
 from .traverser import retrieve
 
-__all__ = ["retrieve"]
+__all__ = ["retrieve", "precompute_tool_vectors", "rerank_tools"]

@@ -59,6 +59,7 @@ def make_config() -> Config:
     c.synthetic_queries_per_tool = 2
     c.recall_k = 10
     c.recall_beam = 3
+    c.rerank_k = 20
     return c
 
 

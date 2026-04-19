@@ -940,5 +940,30 @@
       "5::0::Empirical recall lift on raw-tools eval set: 0.917 -> 0.978 (+0.061), with errors stable at 4 and warnings dropping 28 -> 20"
     ],
     "passes": true
+  },
+  {
+    "id": "explore-direction1-colbert-leaf-rerank",
+    "priority": 57,
+    "category": "retrieval",
+    "description": "ColBERT-style leaf reranker: pull top-2k tools from the traverser, rerank to top-k by MaxSim between query and per-tool multi-vectors (intent_phrase + each example_query). Stacks additively on Direction 3.",
+    "depends_on": [
+      "explore-direction3-multivector-traverser"
+    ],
+    "papers": [
+      "1:ColBERT \u2014 Efficient and Effective Passage Search via Contextualized Late Interaction over BERT (Khattab and Zaharia, arXiv 2004.12832)"
+    ],
+    "steps": [
+      "Add retrieval/rerank.py with rerank_tools(query_emb, candidates, tool_vectors_by_id) -> ranked tool ids using MaxSim",
+      "Pre-embed each tool's intent_phrase + example_queries once at startup; persist via the existing DiskCache so warm starts are free",
+      "Extend retrieve() with rerank_k parameter (default = k); when rerank_k > k, pull rerank_k candidates and apply rerank_tools",
+      "Wire validation/recall_benchmark.py to accept rerank_k; default keeps current behavior",
+      "Add unit test: a tool whose intent_phrase embedding is far from query but one of its example_query embeddings is close \u2014 assert reranker promotes it",
+      "Re-run validate stacked on Direction 3; assert recall@10 >= 0.99 (measured 0.994 = 179/180 hits)"
+    ],
+    "refers": [
+      "0::0::ColBERT scores documents by sum-of-max cosines between query token vectors and document token vectors; we use the same MaxSim operator with sentence-level vectors (intent_phrase plus example_queries) as the document's multi-vector representation",
+      "5::0::Empirical recall lift on raw-tools stacked on Direction 3: 0.978 -> 0.994 (+0.016 stacking gain, +0.077 cumulative vs v7)"
+    ],
+    "passes": true
   }
 ]

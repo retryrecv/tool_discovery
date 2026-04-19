@@ -83,6 +83,10 @@ class Config:
     # exhaustive (better recall, more compute). Default 2 matches historical
     # behavior; raise to 3-4 once L2 has multiple categories.
     recall_beam: int = 2
+    # When set, the recall benchmark pulls ``rerank_k`` candidates from the
+    # traverser and reranks down to ``recall_k`` via per-tool MaxSim. ``None``
+    # disables reranking and keeps the historical single-vector behavior.
+    rerank_k: int | None = None
     # Disk cache directory — provider caches live under this path.
     cache_dir: str = "data/cache"
 
@@ -158,6 +162,8 @@ def load_config(path: str | Path) -> Config:
     c.synthetic_queries_per_tool = int(data.get("synthetic_queries_per_tool", c.synthetic_queries_per_tool))
     c.recall_k = int(data.get("recall_k", c.recall_k))
     c.recall_beam = int(data.get("recall_beam", c.recall_beam))
+    if "rerank_k" in data:
+        c.rerank_k = data["rerank_k"] if data["rerank_k"] is None else int(data["rerank_k"])
     c.cache_dir = data.get("cache_dir", c.cache_dir)
     c.build_providers()
     return c

@@ -13,6 +13,7 @@ import json
 
 from _pipeline_config import make_config, run_dir
 from tool_index.pipeline.stage5_validate import validate_tree
+from tool_index.retrieval import precompute_tool_vectors
 from tool_index.schema import Enrichment, Tree
 
 
@@ -40,6 +41,11 @@ def main() -> int:
 
     print(f"Input: tree depth={tree.depth()}, {len(enrichments)} enrichments, {len(queries)} synthetic queries")
 
+    tool_vectors = None
+    if cfg.rerank_k is not None:
+        tool_vectors = precompute_tool_vectors(enrichments, cfg.embedder)
+        print(f"Pre-embedded {len(tool_vectors)} tools for rerank (rerank_k={cfg.rerank_k})")
+
     report = validate_tree(
         tree, enrichments, cfg.embedder, cfg.judge_llm,
         labeler_llm=cfg.labeler_llm,
@@ -49,6 +55,8 @@ def main() -> int:
         synthetic_per_tool=cfg.synthetic_queries_per_tool,
         recall_k=cfg.recall_k,
         recall_beam=cfg.recall_beam,
+        rerank_k=cfg.rerank_k,
+        tool_vectors=tool_vectors,
         min_recall=cfg.thresholds["min_recall"],
         queries=queries,
     )
