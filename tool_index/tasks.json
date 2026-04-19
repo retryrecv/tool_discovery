@@ -2,7 +2,7 @@
   {
     "_meta": "papers",
     "papers": [
-      "1:HILL — Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+      "1:HILL \u2014 Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
     ]
   },
   {
@@ -109,7 +109,7 @@
     "id": "stage4-upward-clustering-to-l1",
     "priority": 8,
     "category": "functional",
-    "description": "Stage 4 clusters L3 → L2 → L1 based on child description embeddings",
+    "description": "Stage 4 clusters L3 \u2192 L2 \u2192 L1 based on child description embeddings",
     "depends_on": [
       "stage3-leaf-clustering"
     ],
@@ -144,7 +144,7 @@
       "stage4-upward-clustering-to-l1"
     ],
     "steps": [
-      "Build a tree via Stages 1–4 on mini_tools",
+      "Build a tree via Stages 1\u20134 on mini_tools",
       "Run validation.structural.validate_structure on the tree",
       "Verify it returns a report with errors=[] for a well-formed tree"
     ],
@@ -200,14 +200,14 @@
     "id": "retrieval-traverser-routes-query",
     "priority": 14,
     "category": "functional",
-    "description": "retrieval.traverser descends L1 → L2 → L3 → tool for a query and returns candidate tools",
+    "description": "retrieval.traverser descends L1 \u2192 L2 \u2192 L3 \u2192 tool for a query and returns candidate tools",
     "depends_on": [
       "stage6-freeze-snapshot"
     ],
     "steps": [
       "Load a frozen snapshot with storage.snapshot.load",
       "Run retrieval.traverser.traverse with query='read a user row' and k=5",
-      "Verify returned list has ≤5 ToolDescriptors and includes db_users_read"
+      "Verify returned list has \u22645 ToolDescriptors and includes db_users_read"
     ],
     "passes": true
   },
@@ -228,7 +228,7 @@
       "Run build_tree_index(mini_tools, default_config(), out_root=<tmp>/snapshots, strict=False)",
       "Verify returned tree.depth() is 4 or 5",
       "Verify every non-root node has a parent_id that resolves in tree.nodes_by_id",
-      "Verify every tool id is reachable by walking root→children"
+      "Verify every tool id is reachable by walking root\u2192children"
     ],
     "passes": true
   },
@@ -375,7 +375,7 @@
       "retrieval-traverser-routes-query"
     ],
     "steps": [
-      "Empty samples → score 1.0",
+      "Empty samples \u2192 score 1.0",
       "Hits counted across multi-correct rows",
       "Misses recorded with retrieved top-k"
     ],
@@ -747,7 +747,7 @@
       "stage3-leaf-clustering"
     ],
     "papers": [
-      "1:HILL — Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+      "1:HILL \u2014 Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
     ],
     "steps": [
       "Add scale.soft_cluster.assign_soft(embeddings, centroids, alpha) returning per-tool softmax distribution over centroids and a pseudo-centroid c_bar = sum_k a_k c_k",
@@ -776,7 +776,7 @@
       "stage4-upward-clustering-to-l1"
     ],
     "papers": [
-      "1:HILL — Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+      "1:HILL \u2014 Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
     ],
     "steps": [
       "Add scale.residual_cluster.cluster_upward_residual(level_n_nodes, parent_centroids) that subtracts each node's parent centroid before calling existing cluster_upward",
@@ -803,11 +803,11 @@
       "phase1-fastapi-route-endpoint"
     ],
     "papers": [
-      "1:HILL — Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+      "1:HILL \u2014 Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
     ],
     "steps": [
       "Extend retrieval.traverser to return the descended path (list of node_ids from root to leaf-parent) alongside tool_ids",
-      "Populate RouteRecord.path in router.service with the returned path — the field already exists but is emitted empty today",
+      "Populate RouteRecord.path in router.service with the returned path \u2014 the field already exists but is emitted empty today",
       "Extend feedback.heuristics: when leaf label is POSITIVE, emit one FeedbackRecord per (level, node) on the path",
       "Apply graduated confidence floor by level: L1 conf>=0.4, L2 conf>=0.6, L3 conf>=0.8 (deeper levels demand more certainty)",
       "Extend rebuild.eval_adapter to read per-level labels and pass to autotune as level-stratified eval sets",
@@ -816,10 +816,10 @@
     ],
     "refers": [
       "0::0::HILL Section 3.5 beam-search traversal records the full root-to-leaf path; we mirror this by having the traverser return the descended node_ids alongside the final tool_ids",
-      "1::0::HILL training data is <user, intermediate-node> pairs materialized from path traces — requires the route path to be persisted at serving time",
+      "1::0::HILL training data is <user, intermediate-node> pairs materialized from path traces \u2014 requires the route path to be persisted at serving time",
       "2::0::HILL Section 3.5 'Test-time training data extraction' walks beam-search paths from leaf to root and harvests <user, intermediate index node> pairs; we do the same from telemetry paths",
       "3::0::HILL filters phi_DEP and phi_IR(u, i^n) = |Int(u,n-1) intersect Child(i^n)| / |Child(i^n)| keep only precise pairs; we translate to per-level confidence floors",
-      "3::0::HILL Table reports best Gowalla result with phi_DEP=2, phi_IR=0.8 at L2 and 0.4 at L3 — confirming graduated strictness",
+      "3::0::HILL Table reports best Gowalla result with phi_DEP=2, phi_IR=0.8 at L2 and 0.4 at L3 \u2014 confirming graduated strictness",
       "4::0::HILL trains a separate model per level using the harvested per-level pairs; our autotune consumes them as level-stratified eval sets for the same effect"
     ],
     "passes": true
@@ -834,12 +834,12 @@
       "labeling-produces-contrastive-descriptions"
     ],
     "papers": [
-      "1:HILL — Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+      "1:HILL \u2014 Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
     ],
     "steps": [
       "Extend Config.labeler_llm from a single provider to optional per-level dict {L1: opus, L2: sonnet, L3: haiku}",
       "Keep backward compatibility: a single LLMProvider still works unchanged",
-      "Add _select_llm(node.level) helper in labeling/describe.py — no prompt changes",
+      "Add _select_llm(node.level) helper in labeling/describe.py \u2014 no prompt changes",
       "Propagate the same per-level mapping to config.loader YAML parsing",
       "Unit test: single-provider config routes every level to the same provider (backward compat)",
       "Unit test: per-level config dispatches correctly by node.level",
@@ -848,9 +848,9 @@
     "refers": [
       "0::0::HILL Section 4 Stacked MoNN deployment uses 2-3 layers (L1 coarse / L3 fine) with different model complexities per granularity",
       "1::0::HILL keeps single-model deployment as a valid degenerate case of the stack; backward-compat with a single LLMProvider preserves this",
-      "2::0::HILL per-level model dispatch is a routing decision driven solely by tree level, not content — matches a simple _select_llm(level) helper",
+      "2::0::HILL per-level model dispatch is a routing decision driven solely by tree level, not content \u2014 matches a simple _select_llm(level) helper",
       "3::0::HILL configuration treats the per-level stack as deployment policy, not model architecture; YAML-level configurability mirrors that operational stance",
-      "6::0::HILL results: 2-Layer MoNN (Large+Small) achieves -0.97 percent NE and +6.0 percent Recall at only 3.9x cost vs MoNN Large at 24.6x — same-quality, cheaper deployment"
+      "6::0::HILL results: 2-Layer MoNN (Large+Small) achieves -0.97 percent NE and +6.0 percent Recall at only 3.9x cost vs MoNN Large at 24.6x \u2014 same-quality, cheaper deployment"
     ],
     "passes": true
   },
@@ -864,7 +864,7 @@
       "stage3-leaf-clustering"
     ],
     "papers": [
-      "1:HILL — Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+      "1:HILL \u2014 Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
     ],
     "steps": [
       "Extend scale.ann_neighbors with build_kmeans_centroids(embeddings, n_clusters, n_iter) wrapping faiss.Kmeans (numpy fallback when faiss unavailable)",
@@ -876,9 +876,9 @@
     ],
     "refers": [
       "0::0::HILL Section 3.6 uses FAISS GPU K-Means as the core centroid primitive; we wrap faiss.Kmeans with a numpy fallback to keep the same interface",
-      "1::0::HILL Section 3.6 'EM approximation via FAISS' treats indices as Gaussian-mixture clusters — E-step assigns with GPU K-Means, M-step updates model",
+      "1::0::HILL Section 3.6 'EM approximation via FAISS' treats indices as Gaussian-mixture clusters \u2014 E-step assigns with GPU K-Means, M-step updates model",
       "2::0::HILL treats EM iteration count as a tuning knob; default-off (em_refine_iters=0) preserves pre-refinement behavior until opted in",
-      "5::0::HILL ablation shows EM-HILL within ~0.04 percent NE of full HILL — near-free quality with simpler infra"
+      "5::0::HILL ablation shows EM-HILL within ~0.04 percent NE of full HILL \u2014 near-free quality with simpler infra"
     ],
     "passes": true
   },
@@ -895,14 +895,14 @@
       "phase5-hill-em-faiss-kmeans-refinement"
     ],
     "papers": [
-      "1:HILL — Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+      "1:HILL \u2014 Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
     ],
     "steps": [
       "Build 9-tool and 1k-synthetic catalogs with all phase-5 flags OFF (baseline recall@10)",
       "Rebuild both with all phase-5 flags ON (experimental recall@10)",
       "Assert experimental recall@10 >= baseline + 0.05",
       "Run leave-one-out ablation: 4 runs, each disabling one mechanism (soft_cluster, residual_upward, tiered_llm, em_refine) while the rest stay on",
-      "Report per-mechanism delta vs all-on — identifies which ideas actually carry the gain on tool-routing",
+      "Report per-mechanism delta vs all-on \u2014 identifies which ideas actually carry the gain on tool-routing",
       "Emit phase5_report.json with per-config recall, latency, LLM cost columns",
       "Commit report to data/snapshots/phase5_report/ for the design doc"
     ],
@@ -911,6 +911,33 @@
       "1::0::HILL Section 5 stacks all mechanisms for the headline result; the experimental rebuild with all flags ON matches that 'full stack' condition",
       "2::0::HILL Section 5 reports +9.4 percent Recall on internal Meta data and +2.57 percent online A/B gain at Meta Ads after stacking these mechanisms",
       "3::0::HILL ablation table identifies softmax temperature scheduler as largest contributor (+0.10 percent NE when removed); we run the same ablation to confirm which of our 4 mechanisms carry the gain on tool-routing"
+    ],
+    "passes": true
+  },
+  {
+    "id": "explore-direction3-multivector-traverser",
+    "priority": 56,
+    "category": "retrieval",
+    "description": "Multi-vector inner-node scoring in retrieve(): score = max(cos(query, node.embedding), max over child.embedding). Recovers recall lost when an inner node's description is too broad to discriminate against siblings.",
+    "depends_on": [
+      "stage5-validate-tree-passes-on-mini-fixture"
+    ],
+    "papers": [
+      "1:ColBERT \u2014 Efficient and Effective Passage Search via Contextualized Late Interaction over BERT (Khattab and Zaharia, arXiv 2004.12832)",
+      "2:HILL \u2014 Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1) Section 3.2"
+    ],
+    "steps": [
+      "Add _node_score(tree, node, query) helper in retrieval/traverser.py: max of node.embedding cosine and each inner-child cosine",
+      "Replace the two -_cos(n.embedding, query_embedding) sort keys in retrieve() and retrieve_with_path() with -_node_score(tree, n, query_embedding)",
+      "Leaf-parent step keeps using the parent's own embedding for tool-score collection (do not multi-vectorize the leaf step \u2014 that is Direction 1's job)",
+      "Add unit test: a tree where a node's description embedding is far from query but one child is close \u2014 assert the node now wins the frontier",
+      "Add unit test: empty children list falls back to node.embedding cosine (no regression for leaf-parent groups)",
+      "Re-run scripts/stage_validate.py --run raw-tools and assert recall@10 >= 0.97 (baseline 0.917 -> measured 0.978)"
+    ],
+    "refers": [
+      "0::0::ColBERT introduces MaxSim over multi-vectors as the scoring rule for late interaction \u2014 we apply the same operator at the inner-node level instead of the token level",
+      "1::1::HILL Section 3.2 soft-attention clustering produces per-node mixture distributions over children; this task is the simplest realization of that idea (use the existing child embeddings as the mixture)",
+      "5::0::Empirical recall lift on raw-tools eval set: 0.917 -> 0.978 (+0.061), with errors stable at 4 and warnings dropping 28 -> 20"
     ],
     "passes": true
   }

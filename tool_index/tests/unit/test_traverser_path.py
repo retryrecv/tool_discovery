@@ -54,3 +54,41 @@ def test_path_routes_to_math_side_for_math_query() -> None:
     _, path = retrieve_with_path(t, q, k=5, beam=1)
     assert path[0] == "d_math"
     assert path[-1] == "g_add"
+
+
+def test_multivector_score_lets_child_rescue_misleading_parent() -> None:
+    """Inner node with a misleading description but a matching child wins frontier."""
+    root = Node(id="root", level="root", description="all",
+                embedding=[0.0, 0.0, 1.0], children=["d_good", "d_bad"])
+    # d_good's own description is far from query; child g_good is close.
+    d_good = Node(id="d_good", level="domain", description="misleading",
+                  embedding=[0.0, 0.0, 1.0], children=["g_good"], parent_id="root")
+    g_good = Node(id="g_good", level="group", description="good",
+                  embedding=[1.0, 0.0, 0.0], children=["tool_target"], parent_id="d_good")
+    # d_bad's own description is closer to query than d_good's, but no child helps.
+    d_bad = Node(id="d_bad", level="domain", description="distractor",
+                 embedding=[0.5, 0.0, 0.5], children=["g_bad"], parent_id="root")
+    g_bad = Node(id="g_bad", level="group", description="bad",
+                 embedding=[0.4, 0.0, 0.4], children=["tool_other"], parent_id="d_bad")
+    t = Tree(root=root)
+    for n in (root, d_good, g_good, d_bad, g_bad):
+        t.register(n)
+
+    q = [1.0, 0.0, 0.0]
+    tools = retrieve(t, q, k=5, beam=1)
+    assert tools[0] == "tool_target"
+
+
+def test_multivector_score_falls_back_to_node_embedding_when_no_inner_children() -> None:
+    """Leaf-parent groups (whose children are tool IDs, not nodes) keep working."""
+    root = Node(id="root", level="root", description="all",
+                embedding=[0.0, 0.0, 1.0], children=["g_only"])
+    g_only = Node(id="g_only", level="group", description="only",
+                  embedding=[1.0, 0.0, 0.0], children=["tool_a", "tool_b"], parent_id="root")
+    t = Tree(root=root)
+    t.register(root)
+    t.register(g_only)
+
+    q = [1.0, 0.0, 0.0]
+    tools = retrieve(t, q, k=5, beam=1)
+    assert set(tools) == {"tool_a", "tool_b"}
