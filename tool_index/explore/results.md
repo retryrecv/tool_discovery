@@ -15,6 +15,15 @@ Single source of truth for comparing the three exploration spikes against the v7
 | Direction 2 — Doc2Query | `explore/doc2query` | **0.767** | **−0.150** | 2 | 20 | n/a | +5 LLM queries/tool diluted intent_phrase signal; eval queries match the un-augmented distribution |
 | Direction 3 — Multi-vector nodes | `explore/multivector-nodes` | **0.978** | **+0.061** | 4 | 20 | n/a | child-embedding MaxSim, no rebuild needed |
 
+## Real-test eval (post 9-tool uncomment, 99-tool catalog, productized D3+D1 stack)
+
+Tracks decomposition spikes (Directions 4-7) against the **real natural-language `test_cases.py` corpus** (50 simple + 50 complex), not the synthetic 180-query set. Eval script: `uv run scripts/eval_real_cases.py --run raw-tools --k 10 [--decompose]`.
+
+| Variant | Branch | Simple recall@10 | Complex set-recall@10 | Complex full-cover | Notes |
+|---|---|---|---|---|---|
+| Real-test baseline (no decomposition) | `phase1-router` | 49/50 = 0.980 | 96/120 = 0.800 | 31/50 | 99 tools, productized D3+D1 stack, single retrieval per query |
+| **Direction 4 — L2M decomposition + union** | `explore/l2m-decomposition` | **50/50 = 1.000** | **113/120 = 0.942** | **43/50** | LLM splits 45/100 queries (avg 1.67 sub-queries); +0.142 complex, +0.020 simple; decision rule met |
+
 ## How to fill a row
 
 After running the spike on its branch:
