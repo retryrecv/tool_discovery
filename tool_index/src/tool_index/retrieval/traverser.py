@@ -27,6 +27,22 @@ def _cos(a: list[float], b: list[float]) -> float:
     return float(va @ vb / (na * nb))
 
 
+def _node_score(tree: Tree, node: Node, query_embedding: list[float]) -> float:
+    """MaxSim score: cosine to the node's own embedding, max'd with the
+    cosine to each inner child's embedding. Lets a broad node still win
+    when one of its children is the right path."""
+    base = _cos(node.embedding, query_embedding)
+    best = base
+    for cid in node.children:
+        child = tree.nodes_by_id.get(cid)
+        if child is None:
+            continue
+        s = _cos(child.embedding, query_embedding)
+        if s > best:
+            best = s
+    return best
+
+
 def retrieve(tree: Tree, query_embedding: list[float], k: int = 30, beam: int = 2) -> list[str]:
     """Return up to ``k`` tool IDs for ``query_embedding``, ranked.
 
@@ -57,7 +73,7 @@ def retrieve(tree: Tree, query_embedding: list[float], k: int = 30, beam: int = 
     current_nodes: list[Node] = [tree.nodes_by_id[cid] for cid in tree.root.children if cid in tree.nodes_by_id]
     while True:
         # Rank the current frontier by similarity and keep the top beam.
-        scored = sorted(current_nodes, key=lambda n: -_cos(n.embedding, query_embedding))
+        scored = sorted(current_nodes, key=lambda n: -_node_score(tree, n, query_embedding))
         frontier = scored[:beam]
 
         # Expand frontier's inner children. Tool IDs (not in nodes_by_id)
@@ -104,7 +120,7 @@ def retrieve_with_path(
     path: list[str] = []
     current_nodes: list[Node] = [tree.nodes_by_id[cid] for cid in tree.root.children if cid in tree.nodes_by_id]
     while True:
-        scored = sorted(current_nodes, key=lambda n: -_cos(n.embedding, query_embedding))
+        scored = sorted(current_nodes, key=lambda n: -_node_score(tree, n, query_embedding))
         frontier = scored[:beam]
         if frontier:
             path.append(frontier[0].id)
