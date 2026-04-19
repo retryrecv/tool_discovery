@@ -1,6 +1,13 @@
 {
   "id": "explore-multivector-node-representations",
-  "status": "proposed",
+  "status": "promoted",
+  "result": {
+    "recall_at_10": 0.978,
+    "delta_vs_baseline": 0.061,
+    "errors": 4,
+    "warnings": 20,
+    "verdict": "promoted to tasks.json (priority 56). Single 18-line traverser change, no rebuild required."
+  },
   "hypothesis": "Representing each inner node by multiple centroids (one per soft-cluster mode) instead of a single description embedding lets the traverser score a query against the closest mode, fixing misses where a category is semantically broad and its single centroid sits between two query distributions.",
   "papers": [
     {

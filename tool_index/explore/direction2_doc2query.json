@@ -1,6 +1,13 @@
 {
   "id": "explore-doc2query-tool-expansion",
-  "status": "proposed",
+  "status": "archived",
+  "result": {
+    "recall_at_10": 0.767,
+    "delta_vs_baseline": -0.150,
+    "errors": 2,
+    "warnings": 20,
+    "verdict": "regressed — N=5 LLM expansions per tool diluted intent_phrase signal; eval queries match the un-augmented distribution. Did not meet the decision_rule threshold (>= 0.94)."
+  },
   "hypothesis": "Expanding each tool's indexed text with N LLM-predicted user queries (Doc2Query) shifts tool embeddings closer to the query distribution, lifting recall without changing tree shape or traversal.",
   "papers": [
     {

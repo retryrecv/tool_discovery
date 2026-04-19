@@ -1,6 +1,12 @@
 {
   "id": "explore-colbert-leaf-rerank",
-  "status": "proposed",
+  "status": "promoted",
+  "result": {
+    "recall_at_10_alone": 0.856,
+    "recall_at_10_stacked_on_d3": 0.994,
+    "delta_stacking_gain": 0.016,
+    "verdict": "promoted to tasks.json (priority 57). Stacks additively on Direction 3."
+  },
   "hypothesis": "Re-ranking the top-k leaf candidates with ColBERT-style late interaction (token-level MaxSim between query and tool description) recovers misses where the correct tool is in the candidate set but ranked below k.",
   "paper": {
     "title": "ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT",
