@@ -48,6 +48,7 @@ def main() -> int:
         discriminability_threshold=cfg.thresholds["discriminability"],
         synthetic_per_tool=cfg.synthetic_queries_per_tool,
         recall_k=cfg.recall_k,
+        recall_beam=cfg.recall_beam,
         min_recall=cfg.thresholds["min_recall"],
         queries=queries,
     )

@@ -25,7 +25,7 @@ from typing import Optional
 
 from .registry import SnapshotRegistry
 from .telemetry import RequestLogger, RouteRecord
-from ..retrieval.traverser import retrieve
+from ..retrieval.traverser import retrieve_with_path
 
 try:
     from fastapi import FastAPI, HTTPException
@@ -107,7 +107,7 @@ def route(req: RouteRequest) -> RouteResponse:
     embedder = _get_embedder()
     start = time.perf_counter()
     q_emb = embedder.embed(req.query)
-    top_k = retrieve(snap.tree, q_emb, k=k, beam=beam)
+    top_k, path = retrieve_with_path(snap.tree, q_emb, k=k, beam=beam)
     latency_ms = (time.perf_counter() - start) * 1000.0
 
     routed = top_k[0] if top_k else None
@@ -117,7 +117,7 @@ def route(req: RouteRequest) -> RouteResponse:
         snapshot_version=snap.version,
         query=req.query,
         routed_tool_id=routed,
-        path=[],
+        path=path,
         node_scores=[],
         top_k_tool_ids=top_k,
         latency_ms=latency_ms,

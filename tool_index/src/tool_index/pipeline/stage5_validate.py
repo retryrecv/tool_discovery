@@ -34,6 +34,7 @@ def validate_tree(
     recall_k: int,
     min_recall: float,
     queries: list[dict] | None = None,
+    recall_beam: int = 2,
 ) -> ValidationReport:
     """Run all validators and return a populated report.
 
@@ -67,7 +68,7 @@ def validate_tree(
     check_sibling_discriminability(tree, judge_llm, discriminability_threshold, report)
 
     queries = queries if queries is not None else generate_synthetic_queries(enrichments, labeler_llm, synthetic_per_tool)
-    recall = run_retrieval_benchmark(tree, queries, embedder, recall_k)
+    recall = run_retrieval_benchmark(tree, queries, embedder, recall_k, beam=recall_beam)
     report.recall_at_k = recall
     # Store the eval set on the report so stage 6 can persist it.
     report.seed_eval_set = queries

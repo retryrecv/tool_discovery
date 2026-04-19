@@ -1,0 +1,51 @@
+{
+  "id": "explore-doc2query-tool-expansion",
+  "status": "proposed",
+  "hypothesis": "Expanding each tool's indexed text with N LLM-predicted user queries (Doc2Query) shifts tool embeddings closer to the query distribution, lifting recall without changing tree shape or traversal.",
+  "papers": [
+    {
+      "title": "Document Expansion by Query Prediction (Doc2Query)",
+      "arxiv": "1904.08375",
+      "url": "https://arxiv.org/abs/1904.08375",
+      "key_claim": "Predicting and appending likely queries to each document achieves state-of-the-art on two retrieval benchmarks."
+    },
+    {
+      "title": "Precise Zero-Shot Dense Retrieval without Relevance Labels (HyDE)",
+      "arxiv": "2212.10496",
+      "url": "https://arxiv.org/abs/2212.10496",
+      "key_claim": "Symmetric query-side trick: LLM hallucinates a hypothetical answer document, embed that instead of the raw query; outperforms Contriever zero-shot."
+    }
+  ],
+  "baseline": {
+    "snapshot": "data/snapshots/raw-tools/v7",
+    "recall_at_10_beam3": 0.917,
+    "miss_breakdown": "11/27 misses concentrated in cat_391687b6 (semantically broad)"
+  },
+  "design": {
+    "stage": "between Stage 2 (enrich) and Stage 3 (cluster_leaves) — augments the text fed into embedding",
+    "expansion": "For each tool, prompt labeler_llm for N=5 realistic user queries; concat to enrichment.intent before embedding.",
+    "cache": "Reuse DiskCache so re-runs are free.",
+    "files_to_touch": [
+      "src/tool_index/labeling/query_expansion.py (NEW) — generate_tool_queries(enrichment, llm, n)",
+      "src/tool_index/pipeline/stage2_enrich.py (append expanded queries to text-to-embed field)",
+      "scripts/_pipeline_config.py (add c.tool_query_expansion_n = 5)"
+    ],
+    "alternative_hyde": "If Doc2Query under-delivers, try HyDE on the query side: embed an LLM-generated hypothetical tool description for each user query before traversal. Lower indexing cost, higher per-query latency."
+  },
+  "measurement": {
+    "metric": "recall@10 on the 180-query synthetic eval set",
+    "command": "Re-run stages 2,3,4,5 with expansion on; uv run scripts/stage_validate.py --run raw-tools",
+    "ablation": [
+      "no expansion (v7 baseline)",
+      "Doc2Query N=3",
+      "Doc2Query N=5",
+      "HyDE on query side, no doc expansion"
+    ],
+    "success_threshold": "recall@10 >= 0.94, with structural error count unchanged from v7 (3)"
+  },
+  "risks": [
+    "LLM cost: N expansions per tool; mitigated by cache and small catalog (~90 tools).",
+    "Over-expansion can blur a tool's centroid into neighbors — tune N down if discriminability warnings increase."
+  ],
+  "decision_rule": "Promote if recall >= 0.94 AND low-discriminability pair count does not grow vs v7. Cheapest direction to try first."
+}

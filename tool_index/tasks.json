@@ -1,5 +1,11 @@
 [
   {
+    "_meta": "papers",
+    "papers": [
+      "1:HILL — Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+    ]
+  },
+  {
     "id": "package-installs",
     "priority": 1,
     "category": "infrastructure",
@@ -10,174 +16,200 @@
       "Run python -c 'import tool_index; print(tool_index.__name__)'",
       "Verify output is tool_index with no ImportError"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "config-loader-reads-default-yaml",
     "priority": 2,
     "category": "infrastructure",
     "description": "config.loader loads configs/default.yaml into a typed PipelineConfig",
-    "depends_on": ["package-installs"],
+    "depends_on": [
+      "package-installs"
+    ],
     "steps": [
       "Run python -c 'from tool_index.config import default_config; c = default_config(); print(c)'",
       "Verify no exception and the returned object exposes pipeline/cluster/validation sections"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "fake-providers-available",
     "priority": 3,
     "category": "infrastructure",
     "description": "providers.llm_fake and providers.embedding_fake instantiate without network",
-    "depends_on": ["package-installs"],
+    "depends_on": [
+      "package-installs"
+    ],
     "steps": [
       "Run python -c 'from tool_index.providers.llm_fake import FakeLLM; from tool_index.providers.embedding_fake import FakeEmbedder; FakeLLM(); FakeEmbedder()'",
       "Verify no exception and both classes construct with default args"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "cli-build-command-registered",
     "priority": 4,
     "category": "infrastructure",
     "description": "python -m tool_index build --help prints usage",
-    "depends_on": ["package-installs"],
+    "depends_on": [
+      "package-installs"
+    ],
     "steps": [
       "Run python -m tool_index build --help",
       "Verify exit code 0 and output contains --config, --input, --output flags"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "stage1-normalize-raw-tools",
     "priority": 5,
     "category": "functional",
     "description": "Stage 1 normalizes raw tool dicts into ToolDescriptor objects and dedupes",
-    "depends_on": ["fake-providers-available"],
+    "depends_on": [
+      "fake-providers-available"
+    ],
     "steps": [
       "Load tests/fixtures/mini_tools.json",
       "Call pipeline.stage1_normalize.normalize_and_dedupe with the raw list",
       "Verify every returned item is a ToolDescriptor with a stable id",
       "Verify duplicate input rows collapse to a single descriptor"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "stage2-enrich-adds-intent-and-io",
     "priority": 6,
     "category": "functional",
     "description": "Stage 2 enriches each descriptor with intent phrase, IO kinds, synonyms, examples",
-    "depends_on": ["stage1-normalize-raw-tools"],
+    "depends_on": [
+      "stage1-normalize-raw-tools"
+    ],
     "steps": [
       "Run stage2_enrich.enrich_descriptors on the Stage 1 output with FakeLLM",
       "Verify each returned ToolDescriptor has enrichment.intent, io_kinds, synonyms, examples populated"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "stage3-leaf-clustering",
     "priority": 7,
     "category": "functional",
     "description": "Stage 3 groups enriched tools into L3 leaf clusters via HDBSCAN/agglomerative fallback",
-    "depends_on": ["stage2-enrich-adds-intent-and-io"],
+    "depends_on": [
+      "stage2-enrich-adds-intent-and-io"
+    ],
     "steps": [
       "Run stage3_cluster_leaves.cluster_leaves with FakeEmbedder on enriched tools",
       "Verify every tool is assigned to exactly one L3 cluster id",
       "Verify cluster sizes fall within configured min/max bounds after rebalance"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "stage4-upward-clustering-to-l1",
     "priority": 8,
     "category": "functional",
     "description": "Stage 4 clusters L3 → L2 → L1 based on child description embeddings",
-    "depends_on": ["stage3-leaf-clustering"],
+    "depends_on": [
+      "stage3-leaf-clustering"
+    ],
     "steps": [
       "Run stage4_cluster_upward.cluster_upward on L3 clusters",
       "Verify output has distinct L1 and L2 levels with parent pointers",
       "Verify every L3 cluster has an L2 parent and every L2 has an L1 parent"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "labeling-produces-contrastive-descriptions",
     "priority": 9,
     "category": "functional",
     "description": "labeling.contrastive and labeling.describe produce node titles/descriptions via LLM",
-    "depends_on": ["stage4-upward-clustering-to-l1"],
+    "depends_on": [
+      "stage4-upward-clustering-to-l1"
+    ],
     "steps": [
       "Run labeling.describe.describe_node on a cluster with FakeLLM",
       "Verify the returned node has a non-empty title and description",
       "Run labeling.contrastive.contrastive_refine on sibling clusters and verify titles differ"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "stage5-structural-validation",
     "priority": 10,
     "category": "functional",
     "description": "Stage 5 structural validator checks parent/child integrity and depth bounds",
-    "depends_on": ["stage4-upward-clustering-to-l1"],
+    "depends_on": [
+      "stage4-upward-clustering-to-l1"
+    ],
     "steps": [
       "Build a tree via Stages 1–4 on mini_tools",
       "Run validation.structural.validate_structure on the tree",
       "Verify it returns a report with errors=[] for a well-formed tree"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "stage5-sibling-discriminability",
     "priority": 11,
     "category": "functional",
     "description": "Stage 5 sibling discriminability check flags overlapping sibling descriptions",
-    "depends_on": ["stage5-structural-validation"],
+    "depends_on": [
+      "stage5-structural-validation"
+    ],
     "steps": [
       "Run validation.discriminability.check_siblings on a built tree",
       "Verify it returns per-parent cosine-similarity scores for sibling titles",
       "Verify scores below the configured threshold produce warnings in the report"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "stage5-synthetic-recall-benchmark",
     "priority": 12,
     "category": "functional",
     "description": "Stage 5 generates synthetic queries and measures recall@k against the tree",
-    "depends_on": ["stage5-structural-validation"],
+    "depends_on": [
+      "stage5-structural-validation"
+    ],
     "steps": [
       "Run validation.synthetic_queries.generate on the tree with FakeLLM",
       "Run validation.recall_benchmark.evaluate with the generated queries",
       "Verify the report contains recall@1, recall@5, recall@10 numeric values"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "stage6-freeze-snapshot",
     "priority": 13,
     "category": "functional",
     "description": "Stage 6 writes an immutable versioned snapshot with tree.json, build_trace.json, seed_eval_set.jsonl",
-    "depends_on": ["stage5-structural-validation"],
+    "depends_on": [
+      "stage5-structural-validation"
+    ],
     "steps": [
       "Run stage6_freeze.freeze on a validated tree with out_root=<tmp>/snapshots",
       "Verify <tmp>/snapshots/<version>/tree.json exists",
       "Verify <tmp>/snapshots/<version>/build_trace.json exists",
       "Verify <tmp>/snapshots/<version>/seed_eval_set.jsonl exists"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "retrieval-traverser-routes-query",
     "priority": 14,
     "category": "functional",
     "description": "retrieval.traverser descends L1 → L2 → L3 → tool for a query and returns candidate tools",
-    "depends_on": ["stage6-freeze-snapshot"],
+    "depends_on": [
+      "stage6-freeze-snapshot"
+    ],
     "steps": [
       "Load a frozen snapshot with storage.snapshot.load",
       "Run retrieval.traverser.traverse with query='read a user row' and k=5",
       "Verify returned list has ≤5 ToolDescriptors and includes db_users_read"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "orchestrator-end-to-end-mini",
@@ -198,107 +230,688 @@
       "Verify every non-root node has a parent_id that resolves in tree.nodes_by_id",
       "Verify every tool id is reachable by walking root→children"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "cli-build-writes-snapshot",
     "priority": 16,
     "category": "functional",
     "description": "python -m tool_index build end-to-end writes a snapshot directory",
-    "depends_on": ["orchestrator-end-to-end-mini", "cli-build-command-registered"],
+    "depends_on": [
+      "orchestrator-end-to-end-mini",
+      "cli-build-command-registered"
+    ],
     "steps": [
       "Run python -m tool_index build --config configs/default.yaml --input tests/fixtures/mini_tools.json --output <tmp>/snapshots",
       "Verify exit code 0",
       "Verify <tmp>/snapshots/<version>/tree.json exists and parses as JSON"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "determinism-stable-ids-and-hashes",
     "priority": 17,
     "category": "edge-case",
     "description": "utils.ids and utils.hashing produce identical output across runs for identical inputs",
-    "depends_on": ["package-installs"],
+    "depends_on": [
+      "package-installs"
+    ],
     "steps": [
       "Run utils.hashing.stable_hash on the same dict twice and verify equal",
       "Run utils.ids.tool_id on the same descriptor twice and verify equal",
       "Build the tree twice with the same seed and verify tree.version matches"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "noise-tools-assigned-by-knn",
     "priority": 18,
     "category": "edge-case",
     "description": "clustering.noise_handling reassigns HDBSCAN noise points to nearest cluster",
-    "depends_on": ["stage3-leaf-clustering"],
+    "depends_on": [
+      "stage3-leaf-clustering"
+    ],
     "steps": [
       "Construct an embedding set where HDBSCAN marks some points as noise (label=-1)",
       "Run noise_handling.reassign_noise",
       "Verify no point retains label=-1 in the output"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "rebalance-splits-oversize-clusters",
     "priority": 19,
     "category": "edge-case",
     "description": "clustering.rebalance splits clusters exceeding max_size and merges undersize ones",
-    "depends_on": ["stage3-leaf-clustering"],
+    "depends_on": [
+      "stage3-leaf-clustering"
+    ],
     "steps": [
       "Run clustering.rebalance.rebalance on a cluster assignment with an oversize cluster",
       "Verify no output cluster exceeds the configured max_size",
       "Verify no output cluster is smaller than min_size (or is merged into a sibling)"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "normalize-rejects-missing-required-fields",
     "priority": 20,
     "category": "error-handling",
     "description": "Stage 1 raises on raw tool dicts missing name or signature",
-    "depends_on": ["stage1-normalize-raw-tools"],
+    "depends_on": [
+      "stage1-normalize-raw-tools"
+    ],
     "steps": [
       "Call normalize_and_dedupe with [{'doc': 'no name'}]",
       "Verify a ValidationError (or equivalent) is raised mentioning the missing field"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "orchestrator-strict-mode-raises-on-validation-failure",
     "priority": 21,
     "category": "error-handling",
     "description": "build_tree_index(strict=True) raises ValidationError when Stage 5 reports errors",
-    "depends_on": ["orchestrator-end-to-end-mini"],
+    "depends_on": [
+      "orchestrator-end-to-end-mini"
+    ],
     "steps": [
       "Construct an input guaranteed to produce a structural violation (e.g. one tool)",
       "Run build_tree_index(..., strict=True)",
       "Verify ValidationError is raised and no snapshot is written"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "unit-tests-pass",
     "priority": 22,
     "category": "functional",
     "description": "All unit tests under tests/unit/ pass",
-    "depends_on": ["package-installs"],
+    "depends_on": [
+      "package-installs"
+    ],
     "steps": [
       "Run pytest tests/unit/ -x from tool_index/",
       "Verify exit code 0 and no failures"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "integration-test-mini-pipeline-passes",
     "priority": 23,
     "category": "functional",
     "description": "tests/integration/test_pipeline_mini.py passes end-to-end",
-    "depends_on": ["orchestrator-end-to-end-mini"],
+    "depends_on": [
+      "orchestrator-end-to-end-mini"
+    ],
     "steps": [
       "Run pytest tests/integration/test_pipeline_mini.py -x from tool_index/",
       "Verify exit code 0"
     ],
-    "passes": false
+    "passes": true
+  },
+  {
+    "id": "phase1-customer-snapshot-layout",
+    "priority": 24,
+    "category": "production",
+    "description": "router.layout exposes per-customer snapshot dirs with active.json pointer",
+    "depends_on": [
+      "stage6-freeze-snapshot"
+    ],
+    "steps": [
+      "CustomerLayout.for_customer creates root/<cid>/",
+      "write_active/read_active round-trip a version string",
+      "list_versions returns sorted v<N> dirs"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase1-quality-score",
+    "priority": 25,
+    "category": "production",
+    "description": "router.quality.compute_quality_score scores recall@k against samples.jsonl",
+    "depends_on": [
+      "phase1-customer-snapshot-layout",
+      "retrieval-traverser-routes-query"
+    ],
+    "steps": [
+      "Empty samples → score 1.0",
+      "Hits counted across multi-correct rows",
+      "Misses recorded with retrieved top-k"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase1-rollback-gate",
+    "priority": 26,
+    "category": "production",
+    "description": "router.promotion.promote_if_better only flips active.json when within epsilon",
+    "depends_on": [
+      "phase1-quality-score"
+    ],
+    "steps": [
+      "First snapshot always promotes",
+      "Within-epsilon dip still promotes",
+      "Out-of-tolerance drop rolls back, candidate quality file persisted"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase1-request-telemetry",
+    "priority": 27,
+    "category": "production",
+    "description": "router.telemetry appends per-customer JSONL with schema_version",
+    "depends_on": [
+      "phase1-customer-snapshot-layout"
+    ],
+    "steps": [
+      "RouteRecord.new fills request_id and UTC timestamp",
+      "RequestLogger appends to <cid>/requests/<date>.jsonl",
+      "Concurrent appends produce valid JSONL"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase1-snapshot-registry",
+    "priority": 28,
+    "category": "production",
+    "description": "router.registry hot-loads active snapshot, swaps on active.json mtime change",
+    "depends_on": [
+      "phase1-customer-snapshot-layout"
+    ],
+    "steps": [
+      "First get loads from disk",
+      "Second get with unchanged mtime returns cache",
+      "Updated active.json triggers re-load"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase1-fastapi-route-endpoint",
+    "priority": 29,
+    "category": "production",
+    "description": "POST /route returns top-k tool ids and writes telemetry",
+    "depends_on": [
+      "phase1-snapshot-registry",
+      "phase1-request-telemetry"
+    ],
+    "steps": [
+      "uvicorn tool_index.router.service:app boots",
+      "POST /route with valid customer returns RouteResponse",
+      "Unknown customer returns 404"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase1-promote-script",
+    "priority": 30,
+    "category": "production",
+    "description": "scripts/promote_snapshot.py exits 0 on promote, 2 on rollback",
+    "depends_on": [
+      "phase1-rollback-gate"
+    ],
+    "steps": [
+      "Run --customer X --version vN against samples.jsonl",
+      "Exit 0 promotes, exit 2 rolls back",
+      "quality/<version>.json written either way"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase2-sessionize-by-explicit-id",
+    "priority": 31,
+    "category": "production",
+    "description": "feedback.sessionize groups records by explicit session_id",
+    "depends_on": [
+      "phase1-request-telemetry"
+    ],
+    "steps": [
+      "Records sharing session_id collapse to one Session",
+      "Different session_ids yield separate Sessions",
+      "Customers stay separate"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase2-sessionize-by-time-gap",
+    "priority": 32,
+    "category": "production",
+    "description": "feedback.sessionize splits implicit sessions on time gap",
+    "depends_on": [
+      "phase2-sessionize-by-explicit-id"
+    ],
+    "steps": [
+      "Records within gap_seconds stay in one session",
+      "Gap above threshold starts a new session"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase2-heuristics-retry",
+    "priority": 33,
+    "category": "production",
+    "description": "feedback.heuristics labels rapid retry of similar query as NEGATIVE",
+    "depends_on": [
+      "phase2-sessionize-by-explicit-id"
+    ],
+    "steps": [
+      "Same query within retry_seconds with similarity above threshold",
+      "Label polarity is negative with reason 'retry'"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase2-heuristics-followup-tool-switch",
+    "priority": 34,
+    "category": "production",
+    "description": "Following request that picks different tool for similar query labels first NEGATIVE",
+    "depends_on": [
+      "phase2-sessionize-by-explicit-id"
+    ],
+    "steps": [
+      "Two related queries with different routed_tool_id",
+      "First record labeled negative with reason 'switched tool'"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase2-heuristics-abandonment-and-positive",
+    "priority": 35,
+    "category": "production",
+    "description": "No follow-up yields UNKNOWN; unrelated follow-up yields POSITIVE",
+    "depends_on": [
+      "phase2-sessionize-by-explicit-id"
+    ],
+    "steps": [
+      "Single-record session yields UNKNOWN",
+      "Dissimilar follow-up yields POSITIVE with low confidence"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase2-feedback-writer",
+    "priority": 36,
+    "category": "production",
+    "description": "feedback.writer.FeedbackWriter writes per-customer per-day jsonl",
+    "depends_on": [
+      "phase2-heuristics-retry"
+    ],
+    "steps": [
+      "Records partitioned by date and customer",
+      "Overwrite mode replaces; default appends"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase2-process-day-pipeline",
+    "priority": 37,
+    "category": "production",
+    "description": "feedback.pipeline.process_day reads requests, sessionizes, labels, writes",
+    "depends_on": [
+      "phase2-feedback-writer"
+    ],
+    "steps": [
+      "Run on a seeded day produces expected counts",
+      "Re-run idempotent (overwrite=True default)",
+      "No requests yields empty summary"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase2-process-feedback-script",
+    "priority": 38,
+    "category": "production",
+    "description": "scripts/process_feedback.py accepts --date today/yesterday/YYYY-MM-DD",
+    "depends_on": [
+      "phase2-process-day-pipeline"
+    ],
+    "steps": [
+      "--date today resolves to UTC date",
+      "--date yesterday resolves to UTC date - 1",
+      "Output JSON summary printed"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase3-catalog-hash-stable",
+    "priority": 39,
+    "category": "production",
+    "description": "rebuild.catalog_hash is order-independent and example-normalized",
+    "depends_on": [
+      "package-installs"
+    ],
+    "steps": [
+      "Same tools in different order produce the same hash",
+      "Doc edit changes hash",
+      "Examples in different order produce the same hash"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase3-feedback-eval-adapter",
+    "priority": 40,
+    "category": "production",
+    "description": "rebuild.eval_adapter filters by polarity/confidence and dedupes by query",
+    "depends_on": [
+      "phase2-process-day-pipeline"
+    ],
+    "steps": [
+      "UNKNOWN dropped, low-confidence dropped",
+      "Duplicate query keeps the most recent label"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase3-autotune-grid",
+    "priority": 41,
+    "category": "production",
+    "description": "rebuild.autotune sweeps configs and ranks by pos minus lambda*neg",
+    "depends_on": [
+      "phase3-feedback-eval-adapter"
+    ],
+    "steps": [
+      "Default grid has 27 points",
+      "score_eval blends positive/negative hit rates",
+      "Best objective ranks first"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase3-snapshot-diff",
+    "priority": 42,
+    "category": "production",
+    "description": "rebuild.diff reports added/removed/relabeled nodes between two snapshots",
+    "depends_on": [
+      "stage6-freeze-snapshot"
+    ],
+    "steps": [
+      "Added node ids detected",
+      "Removed node ids detected",
+      "Description change recorded as relabeled"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase3-rebuild-orchestrator",
+    "priority": 43,
+    "category": "production",
+    "description": "rebuild.rebuild_customer skips when no catalog change AND feedback delta below threshold",
+    "depends_on": [
+      "phase3-catalog-hash-stable",
+      "phase1-rollback-gate"
+    ],
+    "steps": [
+      "First run rebuilds; promotion runs",
+      "Second run with no changes returns skipped",
+      "Forced rebuild runs even when unchanged"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase3-daily-rebuild-script",
+    "priority": 44,
+    "category": "production",
+    "description": "scripts/daily_rebuild.py exit codes 0/2/3 reflect promotion/rollback/skip",
+    "depends_on": [
+      "phase3-rebuild-orchestrator"
+    ],
+    "steps": [
+      "No-change run exits 3",
+      "Promoted run exits 0",
+      "Rejected run exits 2"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase4-sharded-cache",
+    "priority": 45,
+    "category": "scale",
+    "description": "scale.ShardedDiskCache distributes entries across hash-prefix subdirs",
+    "depends_on": [
+      "package-installs"
+    ],
+    "steps": [
+      "put/get round-trip",
+      "64 entries spread across multiple shard dirs",
+      "Invalid shard_chars rejected"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase4-async-enrichment",
+    "priority": 46,
+    "category": "scale",
+    "description": "scale.enrich_all_async is concurrency-bounded with retry+backoff and fence-strip",
+    "depends_on": [
+      "stage2-enrich-adds-intent-and-io"
+    ],
+    "steps": [
+      "8 tools enriched with concurrency=4 yields 8 results",
+      "Transient failure retried then succeeds",
+      "Markdown-fenced JSON parses"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase4-ann-neighbor-graph",
+    "priority": 47,
+    "category": "scale",
+    "description": "scale.build_neighbor_graph returns k-NN with self excluded and distances ascending",
+    "depends_on": [
+      "stage3-leaf-clustering"
+    ],
+    "steps": [
+      "numpy backend returns k entries per row",
+      "self never appears as neighbor",
+      "auto picks numpy for n<2000"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase4-sampled-discriminability",
+    "priority": 48,
+    "category": "scale",
+    "description": "scale.sample_pairs caps O(n^2) judge calls, deterministic, closest-first",
+    "depends_on": [
+      "stage5-sibling-discriminability"
+    ],
+    "steps": [
+      "Returns at most max_pairs",
+      "Closest pair surfaced first",
+      "Singleton returns empty",
+      "Repeated runs identical"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase4-incremental-rebuild-plan",
+    "priority": 49,
+    "category": "scale",
+    "description": "scale.plan_incremental_rebuild identifies changed tools and ancestor chain",
+    "depends_on": [
+      "phase3-catalog-hash-stable"
+    ],
+    "steps": [
+      "No prev tree forces full rebuild",
+      "Change fraction at or above threshold forces full rebuild",
+      "Small change populates tools_to_reenrich + groups_to_recluster + parents_to_relabel"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase5-hill-soft-attention-clustering",
+    "priority": 50,
+    "category": "hill-research",
+    "description": "Replace stage 3 hard threshold with soft-attention assignment annealed via temperature scheduler",
+    "depends_on": [
+      "stage3-leaf-clustering"
+    ],
+    "papers": [
+      "1:HILL — Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+    ],
+    "steps": [
+      "Add scale.soft_cluster.assign_soft(embeddings, centroids, alpha) returning per-tool softmax distribution over centroids and a pseudo-centroid c_bar = sum_k a_k c_k",
+      "Implement temperature schedule alpha = max_alpha * (iter / max_iters)^exp over stage-3 refinement iterations",
+      "Add a balance regularizer term penalizing assignment-mass collapse (FLOPs-style) during centroid refresh",
+      "Expose config flag soft_cluster=True that routes stage 3 through the new path; default False preserves current behavior",
+      "Unit test on 9-tool fixture: with default alpha schedule must converge to clustering within tolerance of current hard clustering",
+      "Unit test low-alpha case: assignment entropy above threshold (non-trivial overlap between groups)",
+      "Integration test on 1k synthetic catalog: balance regularizer reduces stddev of cluster sizes by at least 30 percent vs no-regularizer baseline"
+    ],
+    "refers": [
+      "0::0::HILL Algorithm 1 'One-Layer Attention Learning' uses soft assignment a_k = softmax(-alpha * d(j,k)) over learnable index-node centroids c_k, producing pseudo embedding c_bar = sum_k a_k c_k; we mirror this for tool-to-group assignment so cluster boundaries are differentiable rather than threshold-snapped",
+      "1::0::HILL Section 3.3 'softmax temperature scheduler' alpha = max_alpha * (current_iter^exp / max_iters^exp) starts loose and sharpens; fixes our 'all singletons or one giant cluster' knife-edge at small scale",
+      "2::0::HILL Section 3.3 'FLOPs regularizer / Balanced Index Distribution' penalizes collapse of assignment mass to few clusters; replaces our post-hoc rebalance.py fix-up",
+      "3::0::HILL paper opts-in joint training via end-to-end loss; we cannot differentiate our LLM labeler so we keep the mechanism opt-in and offline-only"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase5-hill-residual-upward-clustering",
+    "priority": 51,
+    "category": "hill-research",
+    "description": "Stage 4 clusters on residual = embedding - parent_centroid so deeper levels capture finer detail",
+    "depends_on": [
+      "phase5-hill-soft-attention-clustering",
+      "stage4-upward-clustering-to-l1"
+    ],
+    "papers": [
+      "1:HILL — Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+    ],
+    "steps": [
+      "Add scale.residual_cluster.cluster_upward_residual(level_n_nodes, parent_centroids) that subtracts each node's parent centroid before calling existing cluster_upward",
+      "Wire reconstruction invariant: sum of centroids on a leaf's root-to-leaf path approximates the leaf embedding within epsilon",
+      "Expose config flag residual_upward=True; default False",
+      "Unit test reconstruction invariant on 9-tool fixture: for every leaf ||sum(path centroids) - leaf_embedding|| < epsilon",
+      "Unit test residual math: cluster_upward_residual output on pre-centered input equals cluster_upward output on raw input",
+      "Integration test on 1k synthetic: L2 discriminability score improves vs non-residual baseline"
+    ],
+    "refers": [
+      "0::0::HILL Section 3.4 'Cross-Layer Residual Learning' inspired by residual quantization: r_j^n = r_j^{n-1} - c_bar_j^{n-1}; coarse layers capture general concepts, deeper layers capture fine detail",
+      "1::0::HILL reconstruction loss sum_j ||q_j^N - v||^2 ensures cumulative path approximates original embedding; we adopt this as a stage-4 sanity invariant rather than a training loss",
+      "2::0::HILL treats residual learning as an opt-in mechanism layered on top of the base clustering stack; default-off keeps behavior stable until validated"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase5-hill-beam-path-feedback-harvesting",
+    "priority": 52,
+    "category": "hill-research",
+    "description": "Phase 2 feedback emits per-level positive labels by walking the routing path, not just the final tool",
+    "depends_on": [
+      "phase2-process-day-pipeline",
+      "phase1-fastapi-route-endpoint"
+    ],
+    "papers": [
+      "1:HILL — Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+    ],
+    "steps": [
+      "Extend retrieval.traverser to return the descended path (list of node_ids from root to leaf-parent) alongside tool_ids",
+      "Populate RouteRecord.path in router.service with the returned path — the field already exists but is emitted empty today",
+      "Extend feedback.heuristics: when leaf label is POSITIVE, emit one FeedbackRecord per (level, node) on the path",
+      "Apply graduated confidence floor by level: L1 conf>=0.4, L2 conf>=0.6, L3 conf>=0.8 (deeper levels demand more certainty)",
+      "Extend rebuild.eval_adapter to read per-level labels and pass to autotune as level-stratified eval sets",
+      "Unit test on synthetic session log: a positive leaf produces N labels where N = path depth; confidences match graduated schedule",
+      "Integration test: autotune receives distinct per-level eval sets and picks different winning configs per level"
+    ],
+    "refers": [
+      "0::0::HILL Section 3.5 beam-search traversal records the full root-to-leaf path; we mirror this by having the traverser return the descended node_ids alongside the final tool_ids",
+      "1::0::HILL training data is <user, intermediate-node> pairs materialized from path traces — requires the route path to be persisted at serving time",
+      "2::0::HILL Section 3.5 'Test-time training data extraction' walks beam-search paths from leaf to root and harvests <user, intermediate index node> pairs; we do the same from telemetry paths",
+      "3::0::HILL filters phi_DEP and phi_IR(u, i^n) = |Int(u,n-1) intersect Child(i^n)| / |Child(i^n)| keep only precise pairs; we translate to per-level confidence floors",
+      "3::0::HILL Table reports best Gowalla result with phi_DEP=2, phi_IR=0.8 at L2 and 0.4 at L3 — confirming graduated strictness",
+      "4::0::HILL trains a separate model per level using the harvested per-level pairs; our autotune consumes them as level-stratified eval sets for the same effect"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase5-hill-tiered-llm-per-level",
+    "priority": 53,
+    "category": "hill-research",
+    "description": "Use heavier LLM at L1/L2 (few high-stakes decisions) and cheaper LLM at L3 (many decisions)",
+    "depends_on": [
+      "stage4-upward-clustering-to-l1",
+      "labeling-produces-contrastive-descriptions"
+    ],
+    "papers": [
+      "1:HILL — Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+    ],
+    "steps": [
+      "Extend Config.labeler_llm from a single provider to optional per-level dict {L1: opus, L2: sonnet, L3: haiku}",
+      "Keep backward compatibility: a single LLMProvider still works unchanged",
+      "Add _select_llm(node.level) helper in labeling/describe.py — no prompt changes",
+      "Propagate the same per-level mapping to config.loader YAML parsing",
+      "Unit test: single-provider config routes every level to the same provider (backward compat)",
+      "Unit test: per-level config dispatches correctly by node.level",
+      "Cost report on 1k synthetic catalog: total LLM spend drops at least 50 percent vs single-Opus baseline with recall@10 delta within 2 percent"
+    ],
+    "refers": [
+      "0::0::HILL Section 4 Stacked MoNN deployment uses 2-3 layers (L1 coarse / L3 fine) with different model complexities per granularity",
+      "1::0::HILL keeps single-model deployment as a valid degenerate case of the stack; backward-compat with a single LLMProvider preserves this",
+      "2::0::HILL per-level model dispatch is a routing decision driven solely by tree level, not content — matches a simple _select_llm(level) helper",
+      "3::0::HILL configuration treats the per-level stack as deployment policy, not model architecture; YAML-level configurability mirrors that operational stance",
+      "6::0::HILL results: 2-Layer MoNN (Large+Small) achieves -0.97 percent NE and +6.0 percent Recall at only 3.9x cost vs MoNN Large at 24.6x — same-quality, cheaper deployment"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase5-hill-em-faiss-kmeans-refinement",
+    "priority": 54,
+    "category": "hill-research",
+    "description": "After initial clustering, run K iterations of FAISS K-Means as an EM-style refinement step",
+    "depends_on": [
+      "phase4-ann-neighbor-graph",
+      "stage3-leaf-clustering"
+    ],
+    "papers": [
+      "1:HILL — Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+    ],
+    "steps": [
+      "Extend scale.ann_neighbors with build_kmeans_centroids(embeddings, n_clusters, n_iter) wrapping faiss.Kmeans (numpy fallback when faiss unavailable)",
+      "Add EM refinement loop after stage 3: E-step reassigns tools to nearest current centroid; M-step recomputes centroids; iterate to convergence or max_iter",
+      "Expose config flag em_refine_iters (default 0 = disabled)",
+      "Unit test convergence: within-cluster sum-of-squares decreases monotonically per iteration on synthetic data",
+      "Unit test fallback: numpy path matches faiss path within tolerance on small inputs",
+      "Integration test on 1k synthetic: 5 EM iterations reduce WCSS by at least 10 percent vs no refinement"
+    ],
+    "refers": [
+      "0::0::HILL Section 3.6 uses FAISS GPU K-Means as the core centroid primitive; we wrap faiss.Kmeans with a numpy fallback to keep the same interface",
+      "1::0::HILL Section 3.6 'EM approximation via FAISS' treats indices as Gaussian-mixture clusters — E-step assigns with GPU K-Means, M-step updates model",
+      "2::0::HILL treats EM iteration count as a tuning knob; default-off (em_refine_iters=0) preserves pre-refinement behavior until opted in",
+      "5::0::HILL ablation shows EM-HILL within ~0.04 percent NE of full HILL — near-free quality with simpler infra"
+    ],
+    "passes": true
+  },
+  {
+    "id": "phase5-hill-end-to-end-integration",
+    "priority": 55,
+    "category": "hill-research",
+    "description": "Integration test running full pipeline with all HILL features enabled, measure recall lift and per-mechanism ablation",
+    "depends_on": [
+      "phase5-hill-soft-attention-clustering",
+      "phase5-hill-residual-upward-clustering",
+      "phase5-hill-beam-path-feedback-harvesting",
+      "phase5-hill-tiered-llm-per-level",
+      "phase5-hill-em-faiss-kmeans-refinement"
+    ],
+    "papers": [
+      "1:HILL — Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+    ],
+    "steps": [
+      "Build 9-tool and 1k-synthetic catalogs with all phase-5 flags OFF (baseline recall@10)",
+      "Rebuild both with all phase-5 flags ON (experimental recall@10)",
+      "Assert experimental recall@10 >= baseline + 0.05",
+      "Run leave-one-out ablation: 4 runs, each disabling one mechanism (soft_cluster, residual_upward, tiered_llm, em_refine) while the rest stay on",
+      "Report per-mechanism delta vs all-on — identifies which ideas actually carry the gain on tool-routing",
+      "Emit phase5_report.json with per-config recall, latency, LLM cost columns",
+      "Commit report to data/snapshots/phase5_report/ for the design doc"
+    ],
+    "refers": [
+      "0::0::HILL protocol reports baseline numbers with the proposed mechanisms disabled; we mirror this by building the baseline catalogs with all phase-5 flags OFF",
+      "1::0::HILL Section 5 stacks all mechanisms for the headline result; the experimental rebuild with all flags ON matches that 'full stack' condition",
+      "2::0::HILL Section 5 reports +9.4 percent Recall on internal Meta data and +2.57 percent online A/B gain at Meta Ads after stacking these mechanisms",
+      "3::0::HILL ablation table identifies softmax temperature scheduler as largest contributor (+0.10 percent NE when removed); we run the same ablation to confirm which of our 4 mechanisms carry the gain on tool-routing"
+    ],
+    "passes": true
   }
 ]

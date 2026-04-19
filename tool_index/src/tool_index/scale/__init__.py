@@ -26,6 +26,23 @@ from .incremental import (
     plan_incremental_rebuild,
     IncrementalPlan,
 )
+from .soft_cluster import (
+    SoftClusterConfig,
+    assign_soft,
+    assignment_entropy,
+    alpha_schedule,
+    soft_cluster,
+)
+from .residual_cluster import (
+    ResidualClusterConfig,
+    cluster_upward_residual,
+    reconstruction_residuals,
+)
+from .em_refine import (
+    EMRefineConfig,
+    build_kmeans_centroids,
+    em_refine,
+)
 
 __all__ = [
     "ShardedDiskCache",
@@ -34,4 +51,9 @@ __all__ = [
     "sample_pairs", "SampleStrategy",
     "tool_content_hash", "diff_descriptors", "DescriptorDiff",
     "plan_incremental_rebuild", "IncrementalPlan",
+    "SoftClusterConfig", "assign_soft", "assignment_entropy",
+    "alpha_schedule", "soft_cluster",
+    "ResidualClusterConfig", "cluster_upward_residual",
+    "reconstruction_residuals",
+    "EMRefineConfig", "build_kmeans_centroids", "em_refine",
 ]

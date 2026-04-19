@@ -8,6 +8,7 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "planner",
     "tool-index",
 ]
 
@@ -436,6 +437,20 @@ sdist = { url = "https://files.pythonhosted.org/packages/df/de/0d2b39fb4af88a025
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7a/c2/920ef838e2f0028c8262f16101ec09ebd5969864e5a64c4c05fad0617c56/packaging-26.1-py3-none-any.whl", hash = "sha256:5d9c0669c6285e491e0ced2eee587eaf67b670d94a19e94e3984a481aba6802f", size = 95831, upload-time = "2026-04-14T21:12:47.56Z" },
 ]
+
+[[package]]
+name = "planner"
+version = "0.1.0"
+source = { editable = "planner" }
+
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pytest", marker = "extra == 'test'", specifier = ">=9.0" }]
+provides-extras = ["test"]
 
 [[package]]
 name = "pluggy"

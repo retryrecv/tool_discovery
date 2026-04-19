@@ -1,0 +1,332 @@
+[
+  {
+    "_meta": "papers",
+    "papers": [
+      "1:Language Models as Zero-Shot Planners: Extracting Actionable Knowledge for Embodied Agents (arXiv 2201.07207)",
+      "2:Inner Monologue: Embodied Reasoning through Planning with Language Models (arXiv 2207.05608)",
+      "3:Reasoning with Language Model is Planning with World Model (RAP, arXiv 2305.14992)",
+      "4:LLM+P: Empowering Large Language Models with Optimal Planning Proficiency (arXiv 2304.11477)",
+      "5:PlanBench: An Extensible Benchmark for Evaluating Large Language Models on Planning and Reasoning about Change (arXiv 2206.10498)"
+    ]
+  },
+  {
+    "id": "planner-package-installs",
+    "priority": 1,
+    "category": "infrastructure",
+    "description": "planner package is part of the root uv workspace and imports successfully",
+    "depends_on": [],
+    "papers": [],
+    "steps": [
+      "Add planner to the root uv workspace members alongside tool_index",
+      "Run uv run --package planner python -c 'import planner; print(planner.__name__)' from the repo root",
+      "Verify the import succeeds without touching code under tool_index/"
+    ],
+    "refers": [],
+    "passes": true
+  },
+  {
+    "id": "planner-core-model-roundtrip",
+    "priority": 2,
+    "category": "infrastructure",
+    "description": "Core planner models round-trip through dict persistence, with immutable plan versions and mutable run state",
+    "depends_on": [
+      "planner-package-installs"
+    ],
+    "papers": [
+      "2:Inner Monologue: Embodied Reasoning through Planning with Language Models (arXiv 2207.05608)",
+      "3:Reasoning with Language Model is Planning with World Model (RAP, arXiv 2305.14992)"
+    ],
+    "steps": [
+      "Create GoalSpec, PlanStep, PlanVersion, RunState, WorldStateSnapshot, StateDelta, FeedbackEvent, ArtifactRef, ContextSnapshot, and EvalResult dataclasses",
+      "Implement to_dict/from_dict round-trips for persisted models",
+      "Make PlanVersion and PlanStep immutable while keeping RunState mutable for lifecycle updates",
+      "Verify a serialized run reloads with the same active_version, world_state, and observed_state_deltas"
+    ],
+    "refers": [
+      "0::1::Inner Monologue depends on carrying observations forward across planning turns, which requires persisted state objects rather than only prompt text",
+      "1::2::RAP frames reasoning as planning over explicit world states, so the runtime needs typed state snapshots and state deltas",
+      "2::2::Keeping plan versions immutable while run state remains mutable preserves a clean separation between proposed strategy and observed execution"
+    ],
+    "passes": true
+  },
+  {
+    "id": "planner-policy-decomposes-complex-query",
+    "priority": 3,
+    "category": "functional",
+    "description": "A deterministic bootstrap planning policy decomposes a complex user query into ordered, dependency-aware plan steps",
+    "depends_on": [
+      "planner-core-model-roundtrip"
+    ],
+    "papers": [
+      "1:Language Models as Zero-Shot Planners: Extracting Actionable Knowledge for Embodied Agents (arXiv 2201.07207)",
+      "3:Reasoning with Language Model is Planning with World Model (RAP, arXiv 2305.14992)"
+    ],
+    "steps": [
+      "Interpret the raw query into GoalSpec with objective, constraints, success criteria, and ambiguity notes",
+      "Split multi-part requests into sequential PlanStep objects with explicit dependencies",
+      "Infer a coarse step kind per subtask: reason, retrieve, tool, validate, or synthesize",
+      "Verify a query like 'research two vendors, compare tradeoffs, then draft a recommendation' yields multiple ordered steps plus a final validation step"
+    ],
+    "refers": [
+      "0::0::Zero-Shot Planners shows that high-level language goals can be expanded into actionable subgoals; this task makes that decomposition explicit in code",
+      "1::2::RAP treats intermediate reasoning states as part of the planning process, so the output plan needs dependency structure instead of a flat checklist",
+      "2::2::A bootstrap planner gives the runtime a stable initial graph before any search or feedback-driven revision happens"
+    ],
+    "passes": true
+  },
+  {
+    "id": "planner-action-grounder-maps-admissible-actions",
+    "priority": 4,
+    "category": "functional",
+    "description": "Abstract plan steps can be grounded onto admissible capability identifiers through a registry-backed action grounder",
+    "depends_on": [
+      "planner-policy-decomposes-complex-query"
+    ],
+    "papers": [
+      "1:Language Models as Zero-Shot Planners: Extracting Actionable Knowledge for Embodied Agents (arXiv 2201.07207)"
+    ],
+    "steps": [
+      "Define CapabilitySpec and GroundedAction models for the executable action layer",
+      "Implement a registry-backed ActionGrounder that scores capability matches from step title, instructions, and capability_hint",
+      "Prefer an exact capability_hint match when one exists, otherwise fall back to token overlap scoring",
+      "Verify a search-oriented step grounds to web_search and an unmatched step returns no admissible action"
+    ],
+    "refers": [
+      "0::0::Zero-Shot Planners separates semantic planning from mapping a plan onto valid environment actions",
+      "1::0::The paper's planner is only useful after actions are translated into the environment's admissible action space, which is why capability IDs are first-class here"
+    ],
+    "passes": true
+  },
+  {
+    "id": "planner-file-store-persists-run-state",
+    "priority": 5,
+    "category": "functional",
+    "description": "A file-backed planner store persists goals, plan versions, run state, artifacts, and feedback logs by run_id",
+    "depends_on": [
+      "planner-core-model-roundtrip"
+    ],
+    "papers": [
+      "2:Inner Monologue: Embodied Reasoning through Planning with Language Models (arXiv 2207.05608)",
+      "3:Reasoning with Language Model is Planning with World Model (RAP, arXiv 2305.14992)"
+    ],
+    "steps": [
+      "Persist goal.json, state.json, plans/vN.json, artifacts/<id>.json, and feedback/events.jsonl under a per-run directory",
+      "Implement load helpers that reconstruct typed models from disk",
+      "Ensure list_plan_versions returns sorted plan versions for the run",
+      "Verify artifacts and feedback can be reloaded after a fresh store instance is created"
+    ],
+    "refers": [
+      "0::1::Inner Monologue improves later reasoning by feeding back observations from earlier actions, which requires durable feedback storage",
+      "1::2::RAP models reasoning as transitions across state trajectories, so persisted world state and plan history are core runtime data, not optional logs"
+    ],
+    "passes": true
+  },
+  {
+    "id": "planner-runtime-step-lifecycle",
+    "priority": 6,
+    "category": "functional",
+    "description": "PlannerRuntime manages step readiness, execution state, failure state, and grounded actions during a run",
+    "depends_on": [
+      "planner-action-grounder-maps-admissible-actions",
+      "planner-file-store-persists-run-state"
+    ],
+    "papers": [
+      "2:Inner Monologue: Embodied Reasoning through Planning with Language Models (arXiv 2207.05608)",
+      "3:Reasoning with Language Model is Planning with World Model (RAP, arXiv 2305.14992)"
+    ],
+    "steps": [
+      "Implement PlannerRuntime.start_run to create GoalSpec, PlanVersion v1, and an initial RunState",
+      "Expose next_ready_steps so only dependency-satisfied steps move from pending to ready",
+      "Implement transitions for ready to running to done and ready to running to failed",
+      "Record grounded capability IDs for executable steps inside the active run state"
+    ],
+    "refers": [
+      "0::1::Inner Monologue alternates plan, act, observe, and revise, which maps naturally to an explicit step lifecycle",
+      "1::2::RAP explores state transitions rather than one-shot outputs, so the runtime needs machine-readable step status changes"
+    ],
+    "passes": true
+  },
+  {
+    "id": "planner-context-assembly-selects-relevant-state",
+    "priority": 7,
+    "category": "functional",
+    "description": "Context assembly builds a focused per-step snapshot from goal, active plan, current world state, recent artifacts, and open questions",
+    "depends_on": [
+      "planner-runtime-step-lifecycle"
+    ],
+    "papers": [
+      "2:Inner Monologue: Embodied Reasoning through Planning with Language Models (arXiv 2207.05608)",
+      "3:Reasoning with Language Model is Planning with World Model (RAP, arXiv 2305.14992)"
+    ],
+    "steps": [
+      "Build ContextSnapshot for a target step using the active GoalSpec and PlanVersion",
+      "Include current world state, recent artifacts, open questions, completed summaries, and grounded actions",
+      "Limit context to relevant or recent artifacts instead of replaying the entire run history",
+      "Verify unrelated historical artifacts are omitted when artifact_limit is smaller than total artifacts"
+    ],
+    "refers": [
+      "0::1::Inner Monologue conditions later reasoning on current observations, not on a full transcript replay of every previous token",
+      "1::2::RAP's world-model framing means the next decision should depend on the current state snapshot and candidate future actions, which makes selective context assembly important"
+    ],
+    "passes": true
+  },
+  {
+    "id": "planner-feedback-updates-world-state",
+    "priority": 8,
+    "category": "functional",
+    "description": "Feedback events update observed world state, record open questions, and persist the observation trail for later replanning",
+    "depends_on": [
+      "planner-runtime-step-lifecycle"
+    ],
+    "papers": [
+      "2:Inner Monologue: Embodied Reasoning through Planning with Language Models (arXiv 2207.05608)",
+      "3:Reasoning with Language Model is Planning with World Model (RAP, arXiv 2305.14992)"
+    ],
+    "steps": [
+      "Implement record_feedback with source, summary, observed_state_delta, success flag, and new open questions",
+      "Apply observed_state_delta to the run's WorldStateSnapshot and increment its revision",
+      "Append feedback events to the per-run feedback log and track their IDs in RunState",
+      "Verify a failed observation can add a new open question without completing the underlying step"
+    ],
+    "refers": [
+      "0::1::Inner Monologue's core insight is that new observations should feed directly back into the next reasoning turn",
+      "1::2::RAP depends on explicit state transitions, so observed deltas must update the runtime's world state rather than living only in free-form notes"
+    ],
+    "passes": true
+  },
+  {
+    "id": "planner-replan-creates-immutable-plan-version",
+    "priority": 9,
+    "category": "functional",
+    "description": "Replanning creates a new immutable plan version with parent linkage while preserving prior plan history and carried-forward completed work",
+    "depends_on": [
+      "planner-context-assembly-selects-relevant-state",
+      "planner-feedback-updates-world-state"
+    ],
+    "papers": [
+      "2:Inner Monologue: Embodied Reasoning through Planning with Language Models (arXiv 2207.05608)",
+      "3:Reasoning with Language Model is Planning with World Model (RAP, arXiv 2305.14992)"
+    ],
+    "steps": [
+      "Implement PlannerRuntime.replan to write PlanVersion v2+ with parent_version pointing at the previously active plan",
+      "Switch RunState.active_version to the new plan while keeping prior plan files intact",
+      "Carry forward completed or reusable step status when a step ID is intentionally reused in the new version",
+      "Verify v1 and v2 are both loadable after replanning and that only active_version changes in the mutable run state"
+    ],
+    "refers": [
+      "0::1::Inner Monologue shows that new observations can force plan revision; immutable versions preserve that revision trail for debugging and auditability",
+      "1::2::RAP reasons over alternative futures, so the runtime should supersede the active plan without overwriting previous trajectories"
+    ],
+    "passes": true
+  },
+  {
+    "id": "planner-search-policy-explores-branching-plan",
+    "priority": 10,
+    "category": "functional",
+    "description": "A bounded best-first search policy explores branching plan continuations and returns the highest-scoring path within an expansion budget",
+    "depends_on": [
+      "planner-core-model-roundtrip"
+    ],
+    "papers": [
+      "3:Reasoning with Language Model is Planning with World Model (RAP, arXiv 2305.14992)"
+    ],
+    "steps": [
+      "Define SearchNode and SearchResult for search-time state tracking",
+      "Implement a bounded best-first SearchPolicy with max_expansions and beam_width controls",
+      "Reconstruct the best path from parent pointers after search completes",
+      "Verify the policy chooses the higher-reward branch on a small synthetic state graph and stops at the configured expansion budget"
+    ],
+    "refers": [
+      "0::2::RAP explicitly reframes reasoning as planning with a world model and uses search over future states instead of a single greedy rollout",
+      "1::2::A bounded best-first policy provides the same explicit branching hook while staying simpler than full MCTS for v1"
+    ],
+    "passes": true
+  },
+  {
+    "id": "planner-symbolic-subplanner-solves-deterministic-subtask",
+    "priority": 11,
+    "category": "functional",
+    "description": "An optional symbolic subplanner protocol handles deterministic subtasks that benefit from a formal solver path",
+    "depends_on": [
+      "planner-action-grounder-maps-admissible-actions",
+      "planner-search-policy-explores-branching-plan"
+    ],
+    "papers": [
+      "4:LLM+P: Empowering Large Language Models with Optimal Planning Proficiency (arXiv 2304.11477)"
+    ],
+    "steps": [
+      "Define a SymbolicSubplanner protocol whose solve method returns an ordered action sequence for a deterministic subgoal",
+      "Provide a mock symbolic solver implementation for tests",
+      "Allow runtime or policy code to call the symbolic path only when a subtask is marked deterministic",
+      "Verify the mocked solver returns a stable sequence for the same deterministic goal text"
+    ],
+    "refers": [
+      "0::3::LLM+P improves planning reliability by handing formalizable subproblems to a classical planner instead of relying on free-form generation alone",
+      "1::3::Keeping the symbolic path optional matches the paper's hybrid framing: use formal planning where it helps, not for every step"
+    ],
+    "passes": true
+  },
+  {
+    "id": "planner-evaluator-checks-plan-validity",
+    "priority": 12,
+    "category": "functional",
+    "description": "An objective evaluator checks dependency validity, executable-step feasibility, and expected-versus-observed state transitions",
+    "depends_on": [
+      "planner-feedback-updates-world-state",
+      "planner-search-policy-explores-branching-plan"
+    ],
+    "papers": [
+      "5:PlanBench: An Extensible Benchmark for Evaluating Large Language Models on Planning and Reasoning about Change (arXiv 2206.10498)"
+    ],
+    "steps": [
+      "Reject plans with missing dependencies or dependency cycles",
+      "Flag executable tool steps that are not grounded onto an admissible capability",
+      "Compare expected_state_delta from the plan against observed_state_deltas from execution and report mismatches",
+      "Return EvalResult with passed, score, issues, and structured details"
+    ],
+    "refers": [
+      "0::4::PlanBench focuses on objective plan correctness and reasoning about change, so evaluation should inspect explicit plan structure and state transitions",
+      "1::4::State-consistency checks are a direct response to the benchmark's emphasis on whether actions produce the world changes the plan assumes"
+    ],
+    "passes": true
+  },
+  {
+    "id": "planner-end-to-end-complex-session",
+    "priority": 13,
+    "category": "functional",
+    "description": "Integration test runs a complex multi-part session through planning, grounding, execution updates, feedback, replanning, search, and evaluation",
+    "depends_on": [
+      "planner-policy-decomposes-complex-query",
+      "planner-action-grounder-maps-admissible-actions",
+      "planner-file-store-persists-run-state",
+      "planner-runtime-step-lifecycle",
+      "planner-context-assembly-selects-relevant-state",
+      "planner-feedback-updates-world-state",
+      "planner-replan-creates-immutable-plan-version",
+      "planner-search-policy-explores-branching-plan",
+      "planner-symbolic-subplanner-solves-deterministic-subtask",
+      "planner-evaluator-checks-plan-validity"
+    ],
+    "papers": [
+      "1:Language Models as Zero-Shot Planners: Extracting Actionable Knowledge for Embodied Agents (arXiv 2201.07207)",
+      "2:Inner Monologue: Embodied Reasoning through Planning with Language Models (arXiv 2207.05608)",
+      "3:Reasoning with Language Model is Planning with World Model (RAP, arXiv 2305.14992)",
+      "4:LLM+P: Empowering Large Language Models with Optimal Planning Proficiency (arXiv 2304.11477)",
+      "5:PlanBench: An Extensible Benchmark for Evaluating Large Language Models on Planning and Reasoning about Change (arXiv 2206.10498)"
+    ],
+    "steps": [
+      "Start a run from a complex query that includes retrieval, comparison, and final writing subtasks",
+      "Ground the executable steps, complete at least one step with an artifact and observed state delta, and record feedback that introduces a new open question",
+      "Trigger a replan that creates v2 while preserving v1 and carrying forward reusable completed work",
+      "Run bounded search over a small branching decision, optionally call the mock symbolic subplanner for a deterministic subgoal, and finalize the run after objective evaluation passes"
+    ],
+    "refers": [
+      "0::0::Zero-Shot Planners motivates the initial decomposition of a complex request into actionable subtasks",
+      "1::1::Inner Monologue motivates feeding observations back into the next planning turn and revising the plan when the world changes",
+      "2::2::RAP motivates explicit state updates and bounded search over alternative futures during the same session",
+      "3::3::LLM+P motivates retaining a symbolic hook for deterministic subproblems inside an otherwise language-driven planner",
+      "4::4::PlanBench motivates ending the session only after a structural and state-transition validity check passes"
+    ],
+    "passes": true
+  }
+]

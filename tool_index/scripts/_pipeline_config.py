@@ -49,14 +49,16 @@ def make_config() -> Config:
     c.embedder = make_embedding("azure_openai", dim=3072)
     c.cache = DiskCache("data/cache")
     c.thresholds["min_recall"] = 0.0
-    c.thresholds["domain"] = 0.05
-    c.thresholds["category"] = 0.10
+    c.thresholds["group"] = 0.45
+    c.thresholds["category"] = 0.65
+    c.thresholds["domain"] = 0.85
     c.fanout["tool"] = (1, 8)
     c.fanout["group"] = (1, 10)
     c.fanout["category"] = (1, 10)
     c.fanout["domain"] = (1, 20)
     c.synthetic_queries_per_tool = 2
     c.recall_k = 10
+    c.recall_beam = 3
     return c
 
 

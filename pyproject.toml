@@ -1,5 +1,5 @@
 [tool.uv.workspace]
-members = ["tool_index"]
+members = ["tool_index", "planner"]
 
 [dependency-groups]
 dev = [

@@ -90,3 +90,45 @@ def retrieve(tree: Tree, query_embedding: list[float], k: int = 30, beam: int = 
                     break
             return out
         current_nodes = next_nodes
+
+
+def retrieve_with_path(
+    tree: Tree, query_embedding: list[float], k: int = 30, beam: int = 2
+) -> tuple[list[str], list[str]]:
+    """Like ``retrieve`` but also returns the descended node path (top-1 each level).
+
+    Path lists node_ids from the top-level domain down to the leaf-parent
+    (group) chosen at each level by highest cosine similarity to the query.
+    Tools themselves are not part of the path.
+    """
+    path: list[str] = []
+    current_nodes: list[Node] = [tree.nodes_by_id[cid] for cid in tree.root.children if cid in tree.nodes_by_id]
+    while True:
+        scored = sorted(current_nodes, key=lambda n: -_cos(n.embedding, query_embedding))
+        frontier = scored[:beam]
+        if frontier:
+            path.append(frontier[0].id)
+
+        next_nodes: list[Node] = []
+        for node in frontier:
+            for cid in node.children:
+                if cid in tree.nodes_by_id:
+                    next_nodes.append(tree.nodes_by_id[cid])
+        if not next_nodes:
+            tool_scores: list[tuple[float, str]] = []
+            for node in frontier:
+                ns = _cos(node.embedding, query_embedding)
+                for tid in node.children:
+                    tool_scores.append((ns, tid))
+            tool_scores.sort(key=lambda x: -x[0])
+            seen: set[str] = set()
+            out: list[str] = []
+            for _, tid in tool_scores:
+                if tid in seen:
+                    continue
+                seen.add(tid)
+                out.append(tid)
+                if len(out) >= k:
+                    break
+            return out, path
+        current_nodes = next_nodes

@@ -11,7 +11,7 @@ from ..schema import Tree
 from ..retrieval import retrieve
 
 
-def run_retrieval_benchmark(tree: Tree, queries: list[dict], embedder, k: int) -> float:
+def run_retrieval_benchmark(tree: Tree, queries: list[dict], embedder, k: int, beam: int = 2) -> float:
     """Compute recall@k on the synthetic eval set.
 
     Args:
@@ -22,6 +22,8 @@ def run_retrieval_benchmark(tree: Tree, queries: list[dict], embedder, k: int) -
             time. Must match the model that produced node embeddings —
             mixing models makes cosine scores meaningless.
         k: Top-k depth. Smaller ``k`` is a stricter test.
+        beam: Branching factor for the top-down traverser. Higher widens
+            the search at each level — more recall, more compute.
 
     Returns:
         Fraction of queries whose gold ``tool_id`` appeared in the top-k.
@@ -32,7 +34,7 @@ def run_retrieval_benchmark(tree: Tree, queries: list[dict], embedder, k: int) -
     hits = 0
     for row in queries:
         q_emb = embedder.embed(row["query"])
-        candidates = retrieve(tree, q_emb, k=k)
+        candidates = retrieve(tree, q_emb, k=k, beam=beam)
         if row["tool_id"] in candidates:
             hits += 1
     return hits / len(queries)

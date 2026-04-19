@@ -89,3 +89,39 @@ def build_eval_set(
         )
         by_query[eq.query] = eq
     return list(by_query.values())
+
+
+def build_level_stratified_eval(
+    snapshots_root: str | Path,
+    customer_id: str,
+    *,
+    days: list[str] | None = None,
+    min_confidence: float = 0.5,
+) -> dict[int, list[EvalQuery]]:
+    """Return ``{level -> [EvalQuery]}`` using harvested per-level labels.
+
+    Reads ``extra.level`` from harvested feedback records (see
+    ``feedback.path_harvest``). Level 0 carries unharvested (leaf-only)
+    labels so callers can fall back when path-harvest is disabled.
+    """
+    layout = CustomerLayout.for_customer(snapshots_root, customer_id)
+    buckets: dict[int, dict[str, EvalQuery]] = {}
+    for row in _iter_feedback(layout, days):
+        label = row["label"]
+        polarity = label["polarity"]
+        if polarity == "unknown":
+            continue
+        if label["confidence"] < min_confidence:
+            continue
+        tool = row.get("routed_tool_id")
+        if not tool:
+            continue
+        level = int((row.get("extra") or {}).get("level", 0))
+        eq = EvalQuery(
+            query=row["query"],
+            tool_id=tool,
+            polarity=polarity,
+            confidence=label["confidence"],
+        )
+        buckets.setdefault(level, {})[eq.query] = eq
+    return {lvl: list(v.values()) for lvl, v in buckets.items()}

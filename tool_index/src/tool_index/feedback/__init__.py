@@ -20,6 +20,7 @@ from .sessionize import sessionize, Session
 from .heuristics import label_session, Heuristics
 from .writer import FeedbackWriter
 from .pipeline import process_day
+from .path_harvest import harvest_path_labels, PathHarvestConfig
 
 __all__ = [
     "FeedbackLabel", "FeedbackRecord", "Polarity",
@@ -27,4 +28,5 @@ __all__ = [
     "label_session", "Heuristics",
     "FeedbackWriter",
     "process_day",
+    "harvest_path_labels", "PathHarvestConfig",
 ]

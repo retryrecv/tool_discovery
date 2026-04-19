@@ -1,0 +1,43 @@
+{
+  "id": "explore-colbert-leaf-rerank",
+  "status": "proposed",
+  "hypothesis": "Re-ranking the top-k leaf candidates with ColBERT-style late interaction (token-level MaxSim between query and tool description) recovers misses where the correct tool is in the candidate set but ranked below k.",
+  "paper": {
+    "title": "ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT",
+    "arxiv": "2004.12832",
+    "url": "https://arxiv.org/abs/2004.12832",
+    "key_claim": "Late-interaction multi-vector scoring is two orders of magnitude faster than full cross-encoders while preserving most of the quality."
+  },
+  "baseline": {
+    "snapshot": "data/snapshots/raw-tools/v7",
+    "recall_at_10_beam2": 0.850,
+    "recall_at_10_beam3": 0.917,
+    "miss_breakdown": "27/180 misses; ~89% descend correct L1 / wrong L2"
+  },
+  "design": {
+    "stage": "post-traversal reranker between retrieve() and the returned top-k",
+    "scoring": "Sum over query tokens of max cosine to tool-description tokens (MaxSim).",
+    "embedder": "Reuse text-embedding-3-large at sentence granularity first (cheap variant); upgrade to token-level only if sentence variant moves the needle.",
+    "scope": "Only fire when len(candidates) > k; pull candidates = top-(2*k) from traverser, rerank to k.",
+    "files_to_touch": [
+      "src/tool_index/retrieval/rerank.py (NEW)",
+      "src/tool_index/retrieval/traverser.py (extend retrieve to return top-2k when rerank=True)",
+      "src/tool_index/validation/recall_benchmark.py (optional rerank flag for A/B)"
+    ]
+  },
+  "measurement": {
+    "metric": "recall@10 on the 180-query synthetic eval set",
+    "command": "uv run scripts/stage_validate.py --run raw-tools",
+    "ablation": [
+      "beam=3 no rerank (baseline)",
+      "beam=3 + sentence-MaxSim rerank",
+      "beam=3 + token-MaxSim rerank"
+    ],
+    "success_threshold": "recall@10 >= 0.94 (beats v6) without growing latency >2x"
+  },
+  "risks": [
+    "Embedding cost: token-level requires per-token vectors for every tool; may need a separate cheaper embedder.",
+    "Rerank can only help if the right tool is already in candidates — bounded by traverser recall@(2k)."
+  ],
+  "decision_rule": "Promote to tasks.json if recall@10 >= 0.94 and latency budget acceptable; otherwise archive with measurement notes."
+}

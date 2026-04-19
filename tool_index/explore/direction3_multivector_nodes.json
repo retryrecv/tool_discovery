@@ -1,0 +1,52 @@
+{
+  "id": "explore-multivector-node-representations",
+  "status": "proposed",
+  "hypothesis": "Representing each inner node by multiple centroids (one per soft-cluster mode) instead of a single description embedding lets the traverser score a query against the closest mode, fixing misses where a category is semantically broad and its single centroid sits between two query distributions.",
+  "papers": [
+    {
+      "title": "ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT",
+      "arxiv": "2004.12832",
+      "url": "https://arxiv.org/abs/2004.12832",
+      "key_claim": "Multi-vector representation captures finer-grained semantics than a single dense vector; max-pooling over vectors is the scoring rule."
+    },
+    {
+      "title": "HILL — Hierarchical Index Learning for Foundation Retrieval Models",
+      "arxiv": "2604.12965",
+      "section": "3.2 soft-attention clustering",
+      "key_claim": "Soft assignment with temperature schedule produces per-node mixture distributions over children — already implemented in src/tool_index/scale/soft_cluster.py."
+    }
+  ],
+  "baseline": {
+    "snapshot": "data/snapshots/raw-tools/v7",
+    "recall_at_10_beam3": 0.917,
+    "miss_breakdown": "cat_391687b6 alone produces 11/27 misses; flagged by validator as low-discriminability vs cat_c224869d and cat_246c3a14"
+  },
+  "design": {
+    "stage": "Stage 4 (cluster_upward) — store M centroids per node instead of 1",
+    "centroids": "M = min(K, ceil(sqrt(num_children))); compute via existing soft_cluster.py modes or k-means on child embeddings.",
+    "scoring": "node_score(query) = max(cosine(query, c_i) for c_i in node.centroids) — ColBERT MaxSim restricted to inner nodes.",
+    "files_to_touch": [
+      "src/tool_index/schema/tree.py (Node.centroids: list[list[float]] | None alongside existing embedding)",
+      "src/tool_index/clustering/upward.py (compute multi-centroids when reusing soft_cluster output)",
+      "src/tool_index/retrieval/traverser.py (score with max over centroids when present, fallback to embedding)"
+    ],
+    "backwards_compat": "If node.centroids is None, traverser uses node.embedding as today — old snapshots keep working."
+  },
+  "measurement": {
+    "metric": "recall@10 on the 180-query synthetic eval set, plus per-category miss-rate diagnostic",
+    "command": "Rebuild stages 4,5; uv run scripts/stage_validate.py --run raw-tools",
+    "ablation": [
+      "single centroid (v7 baseline)",
+      "M=2 centroids per inner node",
+      "M=ceil(sqrt(children)) centroids",
+      "M centroids + beam=2 (does multi-vector let us shrink beam back?)"
+    ],
+    "success_threshold": "recall@10 >= 0.94 AND cat_391687b6 miss rate drops below 25% (currently 55%)"
+  },
+  "risks": [
+    "Snapshot size grows ~M-fold for inner nodes — fine for 90 tools, watch at 10k.",
+    "Centroid quality depends on soft_cluster temperature schedule; may need tuning.",
+    "If multi-vector recovers recall at beam=2, that is the strongest result (latency win + recall win)."
+  ],
+  "decision_rule": "Promote if recall@10 >= 0.94 with the broad-category miss rate halved. Most aligned with the in-house HILL implementation already on disk."
+}

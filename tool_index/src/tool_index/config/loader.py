@@ -36,6 +36,12 @@ class Config:
     judge_llm_kind: str = "fake"
     embedding_kind: str = "fake"
 
+    # Optional per-level labeler LLM override. Map from tree level name
+    # (e.g. ``"domain"``, ``"category"``, ``"group"``) to the kind-string
+    # passed to ``make_llm``. ``None`` or missing levels fall back to
+    # ``labeler_llm_kind`` — preserving the single-provider default.
+    labeler_llm_kind_per_level: dict[str, str] | None = None
+
     # Output dimensionality requested from the embedder. Must match the
     # real model's dim when using a hosted embedder (see `embedding_openai.py`).
     embedding_dim: int = 64
@@ -73,6 +79,10 @@ class Config:
     synthetic_queries_per_tool: int = 5
     # Top-k depth for recall@k measurement.
     recall_k: int = 30
+    # Beam width used by the recall benchmark traversal. Higher = more
+    # exhaustive (better recall, more compute). Default 2 matches historical
+    # behavior; raise to 3-4 once L2 has multiple categories.
+    recall_beam: int = 2
     # Disk cache directory — provider caches live under this path.
     cache_dir: str = "data/cache"
 
@@ -84,6 +94,8 @@ class Config:
     judge_llm: LLMProvider = None
     embedder: EmbeddingProvider = None
     cache: DiskCache = None
+    # Per-level resolved providers; keys mirror ``labeler_llm_kind_per_level``.
+    labeler_llm_per_level: dict[str, LLMProvider] | None = None
 
     def build_providers(self) -> None:
         """Instantiate the four providers + cache from their ``_kind`` selectors.
@@ -98,6 +110,21 @@ class Config:
         self.judge_llm = make_llm(self.judge_llm_kind)
         self.embedder = make_embedding(self.embedding_kind, dim=self.embedding_dim)
         self.cache = DiskCache(self.cache_dir)
+        if self.labeler_llm_kind_per_level:
+            self.labeler_llm_per_level = {
+                level: make_llm(kind)
+                for level, kind in self.labeler_llm_kind_per_level.items()
+            }
+        else:
+            self.labeler_llm_per_level = None
+
+    def select_labeler_llm(self, level: str | None) -> LLMProvider:
+        """Pick the labeler LLM for a node level; falls back to ``labeler_llm``."""
+        if level and self.labeler_llm_per_level:
+            provider = self.labeler_llm_per_level.get(level)
+            if provider is not None:
+                return provider
+        return self.labeler_llm
 
 
 def load_config(path: str | Path) -> Config:
@@ -113,6 +140,10 @@ def load_config(path: str | Path) -> Config:
     # default as fallback.
     c.enricher_llm_kind = data.get("enricher_llm", c.enricher_llm_kind)
     c.labeler_llm_kind = data.get("labeler_llm", c.labeler_llm_kind)
+    if isinstance(data.get("labeler_llm_per_level"), dict):
+        c.labeler_llm_kind_per_level = {
+            str(k): str(v) for k, v in data["labeler_llm_per_level"].items()
+        }
     c.judge_llm_kind = data.get("judge_llm", c.judge_llm_kind)
     c.embedding_kind = data.get("embedding_model", c.embedding_kind)
     c.embedding_dim = int(data.get("embedding_dim", c.embedding_dim))
@@ -126,6 +157,7 @@ def load_config(path: str | Path) -> Config:
     c.enrich_batch_size = int(data.get("enrich_batch_size", c.enrich_batch_size))
     c.synthetic_queries_per_tool = int(data.get("synthetic_queries_per_tool", c.synthetic_queries_per_tool))
     c.recall_k = int(data.get("recall_k", c.recall_k))
+    c.recall_beam = int(data.get("recall_beam", c.recall_beam))
     c.cache_dir = data.get("cache_dir", c.cache_dir)
     c.build_providers()
     return c
