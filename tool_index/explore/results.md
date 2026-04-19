@@ -11,6 +11,7 @@ Single source of truth for comparing the three exploration spikes against the v7
 |---|---|---|---|---|---|---|---|
 | **Baseline (v7, beam=3)** | `phase1-router` | 0.917 | — | 3 | 28 | TBD | reference snapshot |
 | Direction 1 — ColBERT rerank | `explore/colbert-rerank` | **0.856** | **+0.017** vs same-script baseline (0.839) | 3 | 28 | n/a | rerank top-20 → top-10 via MaxSim over per-tool intent+queries; gain real but small |
+| **Stack: Direction 3 + Direction 1** | `explore/multivector-plus-rerank` | **0.994** | **+0.077** vs v7 baseline (0.917) | 4 | 20 | n/a | 179/180 queries hit; +0.016 over Direction 3 alone; gains are additive |
 | Direction 2 — Doc2Query | `explore/doc2query` | **0.767** | **−0.150** | 2 | 20 | n/a | +5 LLM queries/tool diluted intent_phrase signal; eval queries match the un-augmented distribution |
 | Direction 3 — Multi-vector nodes | `explore/multivector-nodes` | **0.978** | **+0.061** | 4 | 20 | n/a | child-embedding MaxSim, no rebuild needed |
 
