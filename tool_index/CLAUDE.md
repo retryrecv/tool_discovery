@@ -52,6 +52,13 @@ their own.
     versions `v<N>/`.
 - `scripts/` — pipeline stage scripts + `_pipeline_config.py` (shared
   config: proxy URL, model, embedder, thresholds) + `inspect_tree.py`.
+  - `scripts/explore/` — one-off scripts from exploratory spikes (kept
+    for reference; not part of the production stage chain).
+- `explore/` — recall-improvement spike records. Each direction has a
+  JSON spec (hypothesis, paper refs, decision rule, result), plus
+  `results.md` (the cross-direction scoreboard) and `merge_plan.md`
+  (the productization recipe used to land winners). Add new spikes
+  here before touching `tasks.json`; promote winners after measurement.
 
 ## Conventions
 
@@ -74,3 +81,23 @@ their own.
   thresholds are tuned for the catalog size.
 - Snapshots are never overwritten; each freeze allocates the next
   `v<N>/` slot.
+
+## Exploration workflow
+
+Recall-improvement (or any architectural) spikes live under `explore/`
+and are kept separate from `tasks.json` until they prove out:
+
+1. Drop a `direction<N>_<name>.json` in `explore/` with hypothesis,
+   paper refs, baseline numbers, files-to-touch, ablation plan, and a
+   `decision_rule` for promotion.
+2. Run each spike in its own git worktree (`git worktree add ../tds-<name>
+   explore/<branch>`) so multiple snapshots can coexist on disk and
+   `data/cache/` can be shared via symlink for cache reuse.
+3. Use a unique `--run` name per spike (e.g. `raw-tools-doc2query`) and
+   seed it by copying the relevant `0X_*.json` files from the baseline
+   snapshot — never let two spikes write to the same snapshot dir.
+4. Update `explore/results.md` (the scoreboard) after each measurement.
+5. If `decision_rule` is met, draft entries in `explore/proposed_tasks.json`
+   and follow the `merge_plan.md` recipe (cherry-pick → tests →
+   `tasks.json` append → end-to-end validation). Otherwise mark the JSON
+   `"status": "archived"` with a `result` block citing the regression.
