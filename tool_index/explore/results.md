@@ -11,7 +11,7 @@ Single source of truth for comparing the three exploration spikes against the v7
 |---|---|---|---|---|---|---|---|
 | **Baseline (v7, beam=3)** | `phase1-router` | 0.917 | — | 3 | 28 | TBD | reference snapshot |
 | Direction 1 — ColBERT rerank | `explore/colbert-rerank` | TBD | TBD | TBD | TBD | TBD | rerank top-2k → k |
-| Direction 2 — Doc2Query | `explore/doc2query` | TBD | TBD | TBD | TBD | TBD | N=5 expansions per tool |
+| Direction 2 — Doc2Query | `explore/doc2query` | **0.767** | **−0.150** | 2 | 20 | n/a | +5 LLM queries/tool diluted intent_phrase signal; eval queries match the un-augmented distribution |
 | Direction 3 — Multi-vector nodes | `explore/multivector-nodes` | **0.978** | **+0.061** | 4 | 20 | n/a | child-embedding MaxSim, no rebuild needed |
 
 ## How to fill a row
