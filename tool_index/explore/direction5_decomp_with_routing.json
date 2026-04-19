@@ -1,0 +1,53 @@
+{
+  "id": "explore-decomp-with-l1-routing",
+  "status": "proposed",
+  "hypothesis": "Pure decomposition (Direction 4) still suffers from cross-domain noise: each sub-query traverses the full tree and may surface neighbours from the wrong L1 domain. If the decomposer LLM also tags each sub-query with its target L1 domain (chosen from the L1 description list already in the prompt), the traverser can be restricted to descend only that subtree. This removes domain-noise without removing intent-noise (which the leaf reranker handles), targeting the cross-domain co-call misses (e.g. 'validate this passport scan, then make a tracking id and hash it' splits cleanly across [reward, utils]).",
+  "papers": [
+    {
+      "title": "Decomposed Prompting: A Modular Approach for Solving Complex Tasks",
+      "arxiv": "2210.02406",
+      "url": "https://arxiv.org/abs/2210.02406",
+      "key_claim": "A top-level decomposer prompt plans sub-tasks and dispatches each to a specialized handler from a library; the modular split outperforms monolithic chain-of-thought on multi-hop QA and symbolic reasoning."
+    },
+    {
+      "title": "Least-to-Most Prompting (base mechanism)",
+      "arxiv": "2205.10625",
+      "url": "https://arxiv.org/abs/2205.10625"
+    }
+  ],
+  "baseline": {
+    "snapshot": "data/snapshots/raw-tools (99 tools, post-uncomment)",
+    "complex_set_recall_at_10": 0.800,
+    "direction4_expected": "0.85-0.88 (sets the comparison point for whether routing adds value)",
+    "miss_breakdown": "Of the 19 partial-miss complex cases, ~3 are pure cross-domain co-calls (utility + reward, science + utility) where decomposition alone may still rank wrong-domain neighbours above the right tool"
+  },
+  "design": {
+    "stage": "pre-retrieval; tree unchanged. Builds on Direction 4's decompose_query.",
+    "prompt": "Single LLM call. Output JSON: [{\"sub_query\": \"...\", \"domain\": \"L1_id_or_any\"}]. The L1 descriptions in the prompt now serve double duty: anchoring the split AND naming the routing options.",
+    "routing": "For each pair: if domain != 'any', restrict traverser to subtree rooted at that L1 node (pass start_node param); else fall back to root traversal. Final fusion identical to Direction 4 (max score per tool across sub-queries).",
+    "fallback": "If LLM picks a non-existent L1 id, log + degrade to root traversal for that sub-query. Never hard-fail.",
+    "files_to_touch": [
+      "src/tool_index/retrieval/decompose.py - extend decompose_query to optionally return domain tags",
+      "src/tool_index/retrieval/traverser.py - extend retrieve(start_node=None) to descend from a given node id instead of root",
+      "src/tool_index/retrieval/traverser.py - retrieve_decomposed_routed wrapper",
+      "scripts/eval_real_cases.py - --decompose-routed flag"
+    ]
+  },
+  "measurement": {
+    "metric": "complex set-recall@10, complex full-cover, simple recall@10, plus per-case routing-correctness diagnostic (did the LLM pick a domain that contains at least one gold tool?)",
+    "command": "uv run scripts/eval_real_cases.py --run raw-tools --k 10 --decompose-routed",
+    "ablation": [
+      "no decomposition (0.800)",
+      "Direction 4 (decompose, no routing)",
+      "Direction 5 (decompose + L1 routing) - this direction",
+      "Direction 5 with 'any' fallback always allowed (ablate the fallback)"
+    ],
+    "success_threshold": "complex set-recall@10 >= 0.90 AND simple recall@10 >= 0.97 AND >= +0.02 over Direction 4"
+  },
+  "risks": [
+    "LLM picks the wrong L1 -> tool unreachable for that sub-query. Domain-routing precision must hit ~90% to break even vs Direction 4.",
+    "Adds prompt-format strictness (JSON schema with domain enum); model failures more visible. Use the existing markdown-fence-stripping helper.",
+    "Restricted traversal at L1 may miss tools that genuinely belong in two domains (rare in current catalog but possible at 10k scale)."
+  ],
+  "decision_rule": "Promote if complex set-recall@10 >= 0.90 AND >= +0.02 over Direction 4 AND simple recall@10 unchanged. If routing buys < 0.02 over D4, archive in favour of D4 (simpler)."
+}

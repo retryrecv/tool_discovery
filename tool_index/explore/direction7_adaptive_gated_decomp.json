@@ -1,0 +1,56 @@
+{
+  "id": "explore-adaptive-gated-decomposition",
+  "status": "proposed",
+  "hypothesis": "Always-on decomposition (Directions 4/5/6) pays one LLM call per query even when the query is single-intent and would route correctly without decomposition. A cheap retrieval-signal trigger (embed query -> top-30 candidates -> count distinct L1 domains in candidates + measure cluster silhouette) can detect multi-intent queries and only fire the decomposition LLM when it would actually help. Goal: get the recall of D5 while paying the LLM cost only on the ~30-40% of queries that need it, with simple-case latency unchanged from the no-decomposition baseline.",
+  "papers": [
+    {
+      "title": "RQ-RAG: Learning to Refine Queries for Retrieval Augmented Generation",
+      "arxiv": "2404.00610",
+      "url": "https://arxiv.org/abs/2404.00610",
+      "key_claim": "An adaptive query-refinement model decides per-query whether to rewrite, decompose, or disambiguate the input. Trained 7B Llama2 surpasses prior SOTA by 1.9% on single-hop QA and improves multi-hop QA - confirming that adaptive (vs always-on) refinement pays off."
+    },
+    {
+      "title": "Decomposed Prompting (base mechanism for the decomposition step)",
+      "arxiv": "2210.02406",
+      "url": "https://arxiv.org/abs/2210.02406"
+    }
+  ],
+  "baseline": {
+    "snapshot": "data/snapshots/raw-tools (99 tools, post-uncomment)",
+    "complex_set_recall_at_10": 0.800,
+    "simple_recall_at_10": 0.980,
+    "directions_to_beat": "D5 (target recall) AND no-decomposition (target simple-case latency)"
+  },
+  "design": {
+    "stage": "pre-retrieval; reuses Direction 5's decompose-and-route as the decomposition step",
+    "trigger": "1) embed query once. 2) cheap top-30 retrieval (beam=3). 3) compute trigger_signals = (distinct_l1_count_in_top_30, mean_pairwise_l1_distance). 4) if distinct_l1_count >= 2 AND mean_distance >= threshold -> fire decomposition; else use single-query retrieval.",
+    "fast_path": "If trigger says single-intent: same as today's pipeline (1 retrieve + 1 rerank). Zero LLM calls. Identical latency to baseline.",
+    "slow_path": "If trigger says multi-intent: pass query + only the L1 descriptions of the dispersed candidate domains (concentrated context, smaller prompt) to the D5 decomposer. LLM call fires here.",
+    "concentrated_context": "Prompt only includes L1 descriptions for domains that appeared in the dispersed top-30, not all 9. Cheaper, more focused, and less likely to hallucinate sub-queries for unrelated domains.",
+    "files_to_touch": [
+      "src/tool_index/retrieval/decompose.py - decomposition_trigger(query_emb, tree, top_n=30) -> (should_decompose: bool, candidate_l1s: list[str])",
+      "src/tool_index/retrieval/traverser.py - retrieve_adaptive wrapper that branches on the trigger",
+      "scripts/eval_real_cases.py - --adaptive flag, plus per-query log (triggered? latency?)",
+      "scripts/_pipeline_config.py - c.decompose_trigger_threshold = 0.X (tunable)"
+    ]
+  },
+  "measurement": {
+    "metric": "complex set-recall@10 + simple recall@10 + LLM call rate (% of queries that fired decomposition) + p50/p95 query latency",
+    "command": "uv run scripts/eval_real_cases.py --run raw-tools --k 10 --adaptive",
+    "ablation": [
+      "no decomposition (baseline: 0.800 complex / 0.980 simple / 0% LLM calls)",
+      "Direction 5 always-on (target recall, 100% LLM calls)",
+      "Direction 7 adaptive (this direction)",
+      "Direction 7 with threshold sweep (0.4 / 0.5 / 0.6 / 0.7 dispersion thresholds)",
+      "Direction 7 with concentrated-context off (always pass full L1 list)"
+    ],
+    "success_threshold": "complex set-recall@10 >= 0.90 AND simple recall@10 unchanged from baseline (>= 0.978) AND LLM call rate <= 50% of queries"
+  },
+  "risks": [
+    "Trigger threshold tuning - too eager wastes LLM calls (regresses to D5 cost), too conservative misses multi-tool queries (regresses to baseline recall).",
+    "Cheap top-30 still costs one extra retrieval - measure actual latency delta vs 'one LLM call at 200ms'. May be a wash if retrieval is cheap.",
+    "Distinct-L1 signal can be fooled by broad single-intent queries that legitimately span domains (e.g. 'find anything about JSON') - watch the simple-case false-positive rate.",
+    "If D5 itself does not beat D4 meaningfully, the gating exercise becomes pointless - D7 should run only after D5 demonstrates value."
+  ],
+  "decision_rule": "Promote if complex set-recall@10 >= 0.90 AND simple recall@10 >= 0.978 AND LLM call rate <= 50%. This is the production-realistic variant: only ship if it preserves simple-case behaviour AND gets D5-level recall on complex cases."
+}

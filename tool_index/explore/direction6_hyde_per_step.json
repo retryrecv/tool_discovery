@@ -1,0 +1,58 @@
+{
+  "id": "explore-hyde-per-step-decomposition",
+  "status": "proposed",
+  "hypothesis": "Decomposition into raw English sub-queries (Direction 4/5) still leaves a query-document distribution gap: the user's words don't match the tool catalog's intent_phrase distribution. If the decomposer LLM emits one hypothetical tool description per step (in the same shape as our enrichment intent_phrase), the embedded query lands directly in the corpus's distribution - matching tools by description-to-description similarity rather than colloquial-query-to-description similarity. Best for implicit/under-specified steps the user didn't spell out (e.g. 'audit log' implies get_current_datetime).",
+  "papers": [
+    {
+      "title": "Precise Zero-Shot Dense Retrieval without Relevance Labels (HyDE)",
+      "arxiv": "2212.10496",
+      "url": "https://arxiv.org/abs/2212.10496",
+      "key_claim": "An LLM generates a hypothetical document answering the query; embedding the hypothetical document instead of the raw query closes the unsupervised query-document distribution gap. Beats Contriever zero-shot, comparable to fine-tuned retrievers across web search / QA / fact verification."
+    },
+    {
+      "title": "Query2doc: Query Expansion with Large Language Models",
+      "arxiv": "2303.07678",
+      "url": "https://arxiv.org/abs/2303.07678",
+      "key_claim": "Concatenating an LLM-generated pseudo-document with the original query lifts BM25 by 3-15% on MS-MARCO/TREC DL and improves SOTA dense retrievers in- and out-of-domain - confirming corpus-distribution alignment is the lever."
+    },
+    {
+      "title": "Least-to-Most Prompting (base mechanism)",
+      "arxiv": "2205.10625",
+      "url": "https://arxiv.org/abs/2205.10625"
+    }
+  ],
+  "baseline": {
+    "snapshot": "data/snapshots/raw-tools (99 tools, post-uncomment)",
+    "complex_set_recall_at_10": 0.800,
+    "miss_breakdown": "Implicit-step misses are well represented: 'check today's date for the audit log' -> get_current_datetime, 'pull my loyalty card transactions and total them up' -> calculator. Both are sub-steps the user does not name explicitly."
+  },
+  "design": {
+    "stage": "pre-retrieval; tree unchanged.",
+    "prompt": "Single LLM call. System: 'For each step in this query, write a one-sentence description of the tool that would solve it - phrased like a tool catalog entry. Catalog covers L1 domains: {L1_titles_and_one_line_descriptions}. Output JSON list of strings.' User: original query.",
+    "retrieval": "For each hypothetical description h_i: h_emb = embed(h_i); candidates_i = retrieve(tree, h_emb, ...) -> rerank. Union via max-score-per-tool fusion (same as D4/D5).",
+    "key_difference_vs_d4": "The embedded query for retrieval is the LLM's hypothetical *tool description*, not a rephrased *user sub-query*. Aligns embedding-space match with the corpus's own intent_phrase distribution.",
+    "files_to_touch": [
+      "src/tool_index/retrieval/decompose.py - hyde_decompose(query, llm, l1_descriptions) -> list[str] (descriptions, not queries)",
+      "src/tool_index/retrieval/traverser.py - retrieve_hyde wrapper (reuses fusion logic)",
+      "scripts/eval_real_cases.py - --hyde flag",
+      "Optional: also try Query2Doc variant - concat hypothetical description with original sub-query before embedding"
+    ]
+  },
+  "measurement": {
+    "metric": "complex set-recall@10, complex full-cover, simple recall@10",
+    "command": "uv run scripts/eval_real_cases.py --run raw-tools --k 10 --hyde",
+    "ablation": [
+      "no decomposition (0.800)",
+      "Direction 4 (decompose to user sub-queries)",
+      "Direction 6 (decompose to hypothetical tool descriptions) - this direction",
+      "Direction 6 + Query2Doc (concat hypothetical with original sub-query)"
+    ],
+    "success_threshold": "complex set-recall@10 >= 0.92 AND simple recall@10 >= 0.97 AND latency overhead <= 2x baseline"
+  },
+  "risks": [
+    "LLM hallucinates capabilities the catalog does not have -> hypothetical description embeds far from any real tool -> noise. Mitigated by L1 schema in prompt (LLM can only invent within listed domains).",
+    "Single hypothetical description per step may be too narrow - one tool can have multiple phrasings. Consider emitting 2-3 hypothetical descriptions per step and max-fusing.",
+    "Cost: LLM tokens scale with number of steps in the query; longer queries get more expensive."
+  ],
+  "decision_rule": "Promote if complex set-recall@10 >= 0.92 AND simple recall@10 >= 0.97. If D6 beats D4 by >= 0.04 it justifies the extra prompt complexity; otherwise prefer the simpler D4/D5."
+}

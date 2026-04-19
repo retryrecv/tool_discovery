@@ -1,0 +1,51 @@
+{
+  "id": "explore-l2m-query-decomposition",
+  "status": "proposed",
+  "hypothesis": "Multi-step user queries (e.g. 'fetch the API, format the JSON, extract the price field, hash it') embed as a single mixed vector dominated by the primary intent, leaving secondary tools (calculator, hash_text, json_format) below the top-10. Decomposing the query into atomic sub-queries via a single LLM call, then unioning per-sub-query top-k results, recovers those secondary tools without changing the tree.",
+  "papers": [
+    {
+      "title": "Least-to-Most Prompting Enables Complex Reasoning in Large Language Models",
+      "arxiv": "2205.10625",
+      "url": "https://arxiv.org/abs/2205.10625",
+      "key_claim": "Two-stage decompose-then-solve prompt scheme: first emit an ordered list of atomic sub-problems, then solve each. Achieves >=99% on SCAN compositional generalization vs 16% for chain-of-thought."
+    }
+  ],
+  "baseline": {
+    "snapshot": "data/snapshots/raw-tools (99 tools, post-uncomment)",
+    "complex_set_recall_at_10": 0.800,
+    "complex_full_cover_cases": "31/50",
+    "simple_recall_at_10": 0.980,
+    "miss_breakdown": "19 partial-miss complex cases; 14/24 missing slots are secondary utility tools (calculator x3, hash_text x3, get_current_datetime x2, http_get x2, json_format, array_sort, percentage_calc, generate_uuid)"
+  },
+  "design": {
+    "stage": "pre-retrieval (between query input and traverser); zero changes to tree or index",
+    "prompt": "Single LLM call. System: 'Break this user query into atomic sub-queries, one per tool call. The catalog covers these L1 domains: {L1_titles_and_one_line_descriptions}. Output JSON list of strings.' User: original query.",
+    "fusion": "For each sub-query: q_emb = embed(sub_q); candidates_i = retrieve(tree, q_emb, k=rerank_k, beam=cfg.recall_beam) -> rerank_tools(...) -> top-k_per_sub. Union all into a pool keyed by tool_id; per tool keep max score across sub-queries; final top-k = sorted(pool)[:k].",
+    "files_to_touch": [
+      "src/tool_index/retrieval/decompose.py (NEW) - decompose_query(query, llm, l1_descriptions) -> list[str]",
+      "src/tool_index/retrieval/__init__.py - export decompose_query",
+      "src/tool_index/retrieval/traverser.py - new retrieve_decomposed(tree, query, llm, embedder, tool_vectors, k) wrapper",
+      "scripts/eval_real_cases.py - add --decompose flag that swaps topk_for() for the decomposed variant",
+      "scripts/_pipeline_config.py - c.decompose = False (default off)",
+      "src/tool_index/config/loader.py - add decompose: bool = False field"
+    ],
+    "prompt_compactness": "Only L1 titles + one-line descriptions are injected (~500 tokens at current 9 categories). Do NOT include L2/L3 or tool names - keeps prompt scale-stable up to 10k tools.",
+    "cache": "Reuse provider DiskCache - cache key = (query, tree_version) so retunes invalidate cleanly."
+  },
+  "measurement": {
+    "metric": "complex set-recall@10 + complex full-cover cases + simple recall@10",
+    "command": "uv run scripts/eval_real_cases.py --run raw-tools --k 10 --decompose",
+    "ablation": [
+      "no decomposition (post-uncomment baseline: 0.800 / 31 / 0.980)",
+      "decomposition + L1 schema in prompt (this direction)",
+      "decomposition without L1 schema (measure schema-injection delta)"
+    ],
+    "success_threshold": "complex set-recall@10 >= 0.88 AND simple recall@10 >= 0.97"
+  },
+  "risks": [
+    "Sub-queries that no tool serves dilute the candidate pool with noise; mitigated because rerank stage runs per sub-query and final fusion takes max score (low-quality sub-queries naturally lose).",
+    "Latency: +1 LLM call/query (cached). Budget acceptable for batch eval; production needs cache hit-rate monitoring.",
+    "Over-decomposition of simple queries can hurt simple recall - measure both metrics every ablation."
+  ],
+  "decision_rule": "Promote if complex set-recall@10 >= 0.88 with simple recall@10 >= 0.97. Cheapest decomposition direction; sets the floor for Directions 5-7."
+}
