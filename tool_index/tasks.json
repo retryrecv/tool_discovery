@@ -972,6 +972,28 @@
     "priority": 58,
     "category": "retrieval",
     "description": "Least-to-Most LLM query decomposition + union retrieval: a single LLM call splits multi-step queries into atomic sub-queries (with L1/L2 schema lines injected as context); each sub-query is embedded and retrieved independently; candidate pools are fused by max-rank-per-tool. Atomic queries pass through unchanged. Stacks on top of D3+D1.",
+    "status": "shipped",
+    "owner": null,
+    "source_branch": "explore/l2m-decomposition",
+    "landed_commit": "b7629ec",
+    "landed_on": "phase1-router",
+    "landed_at": "2026-04-19",
+    "evaluated_against": {
+      "snapshot": "raw-tools (99 tools, post-uncomment)",
+      "eval_script": "scripts/eval_real_cases.py --run raw-tools --k 10 --decompose",
+      "metrics": [
+        {"name": "simple recall@10", "baseline": 0.980, "achieved": 1.000, "threshold": 0.97},
+        {"name": "complex set-recall@10", "baseline": 0.800, "achieved": 0.942, "threshold": 0.88},
+        {"name": "complex full-cover", "baseline": "31/50", "achieved": "43/50"}
+      ],
+      "decision_rule": "simple >= 0.97 AND complex >= 0.88",
+      "decision_outcome": "PASS"
+    },
+    "alternatives_tried": [
+      {"id": "explore-decomp-with-l1-routing", "branch": "explore/decomp-routing", "status": "archived", "complex_recall": 0.917, "delta_vs_d4": -0.025, "why": "Tree has only 1 L1 -> routing degenerates to L2 restriction; wrong-area picks (28.5%) cut off recovery"},
+      {"id": "explore-hyde-per-step-decomposition", "branch": "explore/hyde-per-step", "status": "archived", "simple_recall": 0.940, "complex_recall": 0.908, "delta_vs_d4": "-0.060 simple, -0.034 complex", "why": "Tool intent_phrases are already paraphrases; hypothetical descriptions add vocabulary drift instead of bridging anything"},
+      {"id": "explore-adaptive-gated-decomposition", "branch": "explore/adaptive-gated", "status": "archived", "complex_recall": 0.867, "delta_vs_d4": -0.075, "why": "Spec committed to D5 as slow-path; D5's ceiling (0.917) was already below D4's floor; concentrated schema further degrades to 0.900 even at 100% fire rate"}
+    ],
     "depends_on": [
       "explore-direction1-colbert-leaf-rerank"
     ],

@@ -101,3 +101,43 @@ and are kept separate from `tasks.json` until they prove out:
    and follow the `merge_plan.md` recipe (cherry-pick → tests →
    `tasks.json` append → end-to-end validation). Otherwise mark the JSON
    `"status": "archived"` with a `result` block citing the regression.
+
+## tasks.json schema (extended fields for cross-session context)
+
+Beyond the core fields (`id`, `priority`, `category`, `description`,
+`depends_on`, `papers`, `steps`, `refers`, `passes`), promoted spike
+entries should also carry these so a fresh Claude session can pick up
+without re-reading commit history:
+
+- **`status`** — `"proposed" | "in_progress" | "shipped" | "superseded"`.
+  Lets a fresh session see at a glance which tasks are live.
+- **`owner`** — branch or person currently driving the task; `null`
+  once shipped. A fresh session checks this before claiming work.
+- **`source_branch`** — the spike branch the work came from
+  (e.g. `explore/l2m-decomposition`). Lets a fresh session diff against
+  it directly instead of grepping commit messages.
+- **`landed_commit`**, **`landed_on`**, **`landed_at`** — promotion
+  metadata: short SHA, target branch, ISO date. Pinpoints the exact
+  state to revert/compare against without searching `git log`.
+- **`evaluated_against`** — structured eval record:
+  ```json
+  {
+    "snapshot": "raw-tools (99 tools, ...)",
+    "eval_script": "scripts/eval_real_cases.py --run raw-tools --k 10 --decompose",
+    "metrics": [
+      {"name": "...", "baseline": <num>, "achieved": <num>, "threshold": <num>}
+    ],
+    "decision_rule": "<rule string>",
+    "decision_outcome": "PASS" | "FAIL"
+  }
+  ```
+  Promotes numbers from prose in `refers` into queryable fields.
+- **`alternatives_tried`** — list of `{id, branch, status,
+  delta_vs_<this>, why}` for sibling spikes that did NOT win. Without
+  this, a fresh session re-proposes archived approaches because the
+  negative result is buried in `explore/direction*_*.json` result
+  blocks. See D4 (`explore-direction4-l2m-query-decomposition`) for
+  the canonical shape.
+
+Existing pre-extension entries (D1, D3) don't have these fields yet —
+backfill opportunistically when revisiting them.
