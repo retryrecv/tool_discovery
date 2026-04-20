@@ -2,7 +2,8 @@
   {
     "_meta": "papers",
     "papers": [
-      "1:HILL \u2014 Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
+      "1:HILL \u2014 Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)",
+      "2:Least-to-Most Prompting Enables Complex Reasoning in Large Language Models (Zhou et al., arXiv 2205.10625)"
     ]
   },
   {
@@ -963,6 +964,31 @@
     "refers": [
       "0::0::ColBERT scores documents by sum-of-max cosines between query token vectors and document token vectors; we use the same MaxSim operator with sentence-level vectors (intent_phrase plus example_queries) as the document's multi-vector representation",
       "5::0::Empirical recall lift on raw-tools stacked on Direction 3: 0.978 -> 0.994 (+0.016 stacking gain, +0.077 cumulative vs v7)"
+    ],
+    "passes": true
+  },
+  {
+    "id": "explore-direction4-l2m-query-decomposition",
+    "priority": 58,
+    "category": "retrieval",
+    "description": "Least-to-Most LLM query decomposition + union retrieval: a single LLM call splits multi-step queries into atomic sub-queries (with L1/L2 schema lines injected as context); each sub-query is embedded and retrieved independently; candidate pools are fused by max-rank-per-tool. Atomic queries pass through unchanged. Stacks on top of D3+D1.",
+    "depends_on": [
+      "explore-direction1-colbert-leaf-rerank"
+    ],
+    "papers": [
+      "2:Least-to-Most Prompting Enables Complex Reasoning in Large Language Models (Zhou et al., arXiv 2205.10625)"
+    ],
+    "steps": [
+      "Add retrieval/decompose.py with decompose_query(query, llm, schema_lines) -> list[str]; single LLM call, fall back to [query] on any LLM/JSON parse failure, cap at max_sub_queries",
+      "Add retrieval/decomposed_retrieve.py with retrieve_decomposed(tree, sub_query_embeddings, tool_vectors, *, k, rerank_k, beam); unions per-sub-query top-k by max-rank-per-tool; knows nothing about LLMs",
+      "Export both from retrieval/__init__.py (decompose_query, retrieve_decomposed)",
+      "Wire scripts/eval_real_cases.py with --decompose flag: inject L2 descriptions when the tree has one L1 (fall back to L1 otherwise); embed each sub-query; call the union retriever",
+      "Add unit tests: decompose_query handles atomic/multi-step/fenced/invalid-JSON/LLM-failure/max cap; retrieve_decomposed unions sub-query pools and respects k",
+      "Re-run scripts/eval_real_cases.py --run raw-tools --k 10 --decompose; assert simple recall@10 >= 0.97 and complex set-recall@10 >= 0.88 (measured 1.000 / 0.942)"
+    ],
+    "refers": [
+      "2::0::Least-to-Most (arXiv:2205.10625) decomposes a complex input into easier sub-problems solved in sequence; we apply the same decomposition at the retrieval front-end, fanning out independent sub-queries and union-fusing their candidate pools",
+      "5::0::Real-test eval on raw-tools (99 tools, 50 simple + 50 complex): simple 0.980 -> 1.000, complex set-recall 0.800 -> 0.942 (+0.142); 45/100 queries split (avg 1.67 sub-queries); atomic queries pass through with single-element list"
     ],
     "passes": true
   }

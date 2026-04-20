@@ -21,8 +21,11 @@ Tracks decomposition spikes (Directions 4-7) against the **real natural-language
 
 | Variant | Branch | Simple recall@10 | Complex set-recall@10 | Complex full-cover | Notes |
 |---|---|---|---|---|---|
-| Real-test baseline (no decomposition) | `phase1-router` | 49/50 = 0.980 | 96/120 = 0.800 | 31/50 | 99 tools, productized D3+D1 stack, single retrieval per query |
-| **Direction 4 — L2M decomposition + union** | `explore/l2m-decomposition` | **50/50 = 1.000** | **113/120 = 0.942** | **43/50** | LLM splits 45/100 queries (avg 1.67 sub-queries); +0.142 complex, +0.020 simple; decision rule met |
+| Real-test baseline (no decomposition) | `phase1-router` (pre-D4) | 49/50 = 0.980 | 96/120 = 0.800 | 31/50 | 99 tools, productized D3+D1 stack, single retrieval per query |
+| **Direction 4 — L2M decomposition + union** *(new baseline, promoted)* | `phase1-router` (post-D4) | **50/50 = 1.000** | **113/120 = 0.942** | **43/50** | LLM splits 45/100 queries (avg 1.67 sub-queries); +0.142 complex, +0.020 simple; decision rule met |
+| Direction 5 — Decomp + L1/L2 routing | `explore/decomp-routing` | 50/50 = 1.000 | 110/120 = 0.917 | 40/50 | **Archived.** −0.025 vs D4. Tree has 1 L1 → routing degenerates to L2 restriction; wrong-area picks (28.5%) cut off recovery. |
+| Direction 6 — HyDE per step | `explore/hyde-per-step` | 47/50 = 0.940 | 109/120 = 0.908 | 40/50 | **Archived.** simple −0.060, complex −0.034 vs D4. Hypothetical descriptions paraphrase away from intent_phrase distribution. |
+| Direction 7 — Adaptive gating of D5 | `explore/adaptive-gated` | 50/50 = 1.000 (best config) | 104/120 = 0.867 (best config) | 35/50 | **Archived.** Even always-fire tops at 0.900. Slow-path D5 already regressed; concentrated schema degrades it further. Bounded below D4. |
 
 ## How to fill a row
 
