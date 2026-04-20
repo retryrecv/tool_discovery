@@ -1,22 +1,19 @@
 from __future__ import annotations
 
+from collections import Counter
+
 from planner import DEFAULT_EVAL_CASES_PATH, evaluate_cases, load_eval_cases
 
 
 def test_eval_cases_cover_easy_to_complex():
     cases = load_eval_cases(DEFAULT_EVAL_CASES_PATH)
 
-    assert len(cases) == 8
-    assert [case.difficulty for case in cases] == [
-        "easy",
-        "easy",
-        "medium",
-        "medium",
-        "hard",
-        "hard",
-        "complex",
-        "complex",
-    ]
+    assert len(cases) == 60
+    assert Counter(case.difficulty for case in cases) == {
+        "easy": 20,
+        "medium": 20,
+        "complex": 20,
+    }
 
 
 def test_eval_cases_pass_with_current_planner(runtime):
