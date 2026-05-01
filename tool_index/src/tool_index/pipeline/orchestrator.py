@@ -102,8 +102,8 @@ def build_tree_index(
             carry enough fields for stage 1 to produce a `ToolDescriptor`
             (at minimum ``name`` + some description of the tool's behavior).
         config: A fully-built `tool_index.config.Config` — its providers
-            (``enricher_llm``, ``labeler_llm``, ``judge_llm``, ``embedder``,
-            ``cache``) must already be instantiated.
+            (``enricher_llm``, ``labeler_llm``, ``embedder``, ``cache``)
+            must already be instantiated.
         out_root: Directory where the freeze stage will write the versioned
             snapshot subdirectory (``<out_root>/<version>/``).
 

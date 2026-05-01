@@ -33,7 +33,6 @@ class Config:
     # keeps the build offline and deterministic — used by tests and local dev.
     enricher_llm_kind: str = "fake"
     labeler_llm_kind: str = "fake"
-    judge_llm_kind: str = "fake"
     embedding_kind: str = "fake"
 
     # Optional per-level labeler LLM override. Map from tree level name
@@ -80,7 +79,6 @@ class Config:
     # defaults; the actual types are `LLMProvider` / `EmbeddingProvider`.
     enricher_llm: LLMProvider = None
     labeler_llm: LLMProvider = None
-    judge_llm: LLMProvider = None
     embedder: EmbeddingProvider = None
     cache: DiskCache = None
     # Per-level resolved providers; keys mirror ``labeler_llm_kind_per_level``.
@@ -96,7 +94,6 @@ class Config:
         """
         self.enricher_llm = make_llm(self.enricher_llm_kind)
         self.labeler_llm = make_llm(self.labeler_llm_kind)
-        self.judge_llm = make_llm(self.judge_llm_kind)
         self.embedder = make_embedding(self.embedding_kind, dim=self.embedding_dim)
         self.cache = DiskCache(self.cache_dir)
         if self.labeler_llm_kind_per_level:
@@ -133,7 +130,6 @@ def load_config(path: str | Path) -> Config:
         c.labeler_llm_kind_per_level = {
             str(k): str(v) for k, v in data["labeler_llm_per_level"].items()
         }
-    c.judge_llm_kind = data.get("judge_llm", c.judge_llm_kind)
     c.embedding_kind = data.get("embedding_model", c.embedding_kind)
     c.embedding_dim = int(data.get("embedding_dim", c.embedding_dim))
     # YAML represents tuples as lists — convert back so `fanout` matches

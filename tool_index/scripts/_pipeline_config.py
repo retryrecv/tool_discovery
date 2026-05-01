@@ -45,7 +45,7 @@ MODEL = "claude-haiku-4-5-20251001"
 def make_config() -> Config:
     c = Config()
     llm = AnthropicLLMProvider(model=MODEL, base_url=PROXY_BASE_URL, api_key=PROXY_API_KEY)
-    c.enricher_llm = c.labeler_llm = c.judge_llm = llm
+    c.enricher_llm = c.labeler_llm = llm
     c.embedder = make_embedding("azure_openai", dim=3072)
     c.cache = DiskCache("data/cache")
     c.thresholds["group"] = 0.45

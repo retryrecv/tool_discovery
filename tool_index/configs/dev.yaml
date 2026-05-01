@@ -1,6 +1,5 @@
 enricher_llm: fake
 labeler_llm: fake
-judge_llm: fake
 embedding_model: fake
 embedding_dim: 64
 

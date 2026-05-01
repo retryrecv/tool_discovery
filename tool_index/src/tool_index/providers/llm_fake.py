@@ -1,13 +1,11 @@
 """Heuristic fake LLM — the `LLMProvider` used in tests and offline builds.
 
 Implements just enough of the prompt-response shapes the pipeline sends
-to produce plausible structured outputs without any actual model. Four
+to produce plausible structured outputs without any actual model. Two
 prompt kinds are recognized (routed by `schema` kwarg or prompt marker):
 
     enrich_tool             → JSON enrichment
     describe_cluster        → one-line label
-    judge_discriminability  → float in [0, 1]
-    synthesize_queries      → JSON list of query strings
 
 Deterministic: same prompt in, same response out. That's what keeps
 golden tests stable.
@@ -37,10 +35,6 @@ class FakeLLMProvider:
             return self._enrich(prompt)
         if schema == "describe_cluster" or "DESCRIBE_CLUSTER" in prompt:
             return self._describe(prompt)
-        if schema == "judge_discriminability" or "JUDGE_DISCRIMINABILITY" in prompt:
-            return self._judge(prompt)
-        if schema == "synthesize_queries" or "SYNTHESIZE_QUERIES" in prompt:
-            return self._synth_queries(prompt)
         return ""
 
     # ------------------------------------------------------------------ enrich
@@ -91,43 +85,6 @@ class FakeLLMProvider:
             uniq = mtoks[:3]
         head = ", ".join(uniq) if uniq else "operations"
         return f"Tools focused on {head}"
-
-    # ------------------------------------------------------------------- judge
-    def _judge(self, prompt: str) -> str:
-        """Score A vs B on Jaccard dissimilarity of their keyword sets.
-
-        Low token overlap → high discriminability. Returns a float in
-        ``[0, 1]`` formatted as a string (matching the real LLM contract).
-        """
-        a = _extract(prompt, r"A:\s*(.+)") or ""
-        b = _extract(prompt, r"B:\s*(.+)") or ""
-        ta, tb = set(_keywords(a)), set(_keywords(b))
-        if not ta and not tb:
-            return "0.5"
-        jacc = len(ta & tb) / max(1, len(ta | tb))
-        # 1 - Jaccard ⇒ higher is more distinct, matching the real prompt's scale.
-        return f"{1.0 - jacc:.3f}"
-
-    # --------------------------------------------------------- synth queries
-    def _synth_queries(self, prompt: str) -> str:
-        """Generate ``N`` eval queries by templating the tool's INTENT.
-
-        Returns a JSON list of at most ``n`` strings — matches the real
-        prompt's expected format so stage 5 can parse it identically.
-        """
-        intent = _extract(prompt, r"INTENT:\s*(.+)") or "do something"
-        n = int(_extract(prompt, r"N:\s*(\d+)") or 5)
-        verb, rest = _split_intent(intent)
-        base = [
-            f"please {intent}",
-            f"I need to {intent}",
-            f"help me {intent}",
-            f"how can I {intent}",
-            f"{verb} {rest} now",
-            f"{verb} the {rest} quickly",
-            f"{intent} for my project",
-        ]
-        return json.dumps(base[:n])
 
 
 # -------------------------------------------------------- string helpers
@@ -235,15 +192,3 @@ _VERB_SIBLINGS = {
 def _sibling_verb(v: str) -> str:
     """Return a verb synonymous with ``v``, or ``v`` itself if none known."""
     return _VERB_SIBLINGS.get(v, v)
-
-
-def _split_intent(intent: str) -> tuple[str, str]:
-    """Split an intent phrase into ``(verb, remainder)``.
-
-    Used to interpolate verb + remainder separately in synthesized
-    queries. Single-word intents return ``(intent, "")``.
-    """
-    parts = intent.strip().split(" ", 1)
-    if len(parts) == 1:
-        return parts[0], ""
-    return parts[0], parts[1]
