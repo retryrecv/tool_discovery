@@ -2,8 +2,8 @@
 
 Single source of truth for comparing the three exploration spikes against the v7 baseline. Update this file as each branch produces numbers; do not edit other branches' rows.
 
-**Eval set**: `data/snapshots/raw-tools/v7/04_synth_queries.jsonl` (180 queries). Frozen — do not regenerate.
-**Metric**: recall@10 from `uv run scripts/stage_validate.py --run raw-tools`.
+**Eval set**: `data/snapshots/raw-tools/v7/04_synth_queries.jsonl` (180 queries, retired). Frozen — historical record only.
+**Metric**: recall@10 from the (now-removed) synthetic-query validator. Going forward, use `uv run scripts/eval_real_cases.py --run raw-tools --k 10 --decompose` against the natural-language test corpus.
 
 ## Results
 
@@ -30,7 +30,7 @@ Tracks decomposition spikes (Directions 4-7) against the **real natural-language
 ## How to fill a row
 
 After running the spike on its branch:
-1. Read `data/snapshots/raw-tools/<run>/05_validation.json` → `recall_at_k`, `len(errors)`, count of `low discriminability` warnings.
+1. Run `uv run scripts/eval_real_cases.py --run <run> --k 10 --decompose` and capture simple recall, complex set-recall, and complex full-cover.
 2. Run the per-category miss diagnostic; capture cat_391687b6 miss-rate in **Notes**.
 3. Compute `Avg nodes visited` = mean candidates inspected per query (instrument `retrieve()` once, share the helper).
 4. Commit the row update on this file to `main` via PR — do **not** merge the spike branch yet.

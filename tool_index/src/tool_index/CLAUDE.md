@@ -4,11 +4,10 @@ Python package root. Modules:
 
 - `schema/` — dataclasses / pydantic contracts (ToolDescriptor, Enrichment, Node, Tree). Pure data, no logic.
 - `providers/` — LLM + embedding adapters; fakes for tests.
-- `pipeline/` — the six build stages + orchestrator.
+- `pipeline/` — the build stages + orchestrator.
 - `clustering/` — agglomerative + HDBSCAN-emulating clusterers, neighbor graphs, rebalancing.
 - `labeling/` — contrastive cluster description via LLM.
-- `validation/` — structural / discriminability / recall checks.
-- `retrieval/` — top-down traverser (used by validation + as reference).
+- `retrieval/` — top-down traverser (used by external eval scripts and as reference).
 - `storage/` — snapshot read/write, format, versioning.
 - `prompts/` — prompt templates.
 - `config/` — YAML config loader.

@@ -51,17 +51,13 @@ def main(argv: list[str] | None = None) -> int:
     build.add_argument("--config", default=None)
     build.add_argument("--input", required=True)
     build.add_argument("--output", default="data/snapshots")
-    # ``--lax`` inverts the orchestrator's ``strict`` default: freeze
-    # even if validation failed, useful for debugging tree shape without
-    # meeting the recall floor.
-    build.add_argument("--lax", action="store_true", help="Do not raise on validation failure")
 
     args = parser.parse_args(argv)
 
     if args.cmd == "build":
         cfg = load_config(args.config) if args.config else default_config()
         tools = _load_tools(Path(args.input))
-        tree = build_tree_index(tools, cfg, out_root=args.output, strict=not args.lax)
+        tree = build_tree_index(tools, cfg, out_root=args.output)
         # Success summary on stderr so stdout stays reserved for
         # machine-readable output if we ever add any.
         print(f"Built {tree.version} with {len(tree.tools_by_id)} tools", file=sys.stderr)

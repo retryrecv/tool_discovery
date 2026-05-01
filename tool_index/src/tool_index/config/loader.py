@@ -56,37 +56,22 @@ class Config:
         "tool": (3, 8),
     })
 
-    # Numeric knobs that tune clustering and validation:
+    # Numeric knobs that tune clustering:
     #   near_dup          — cosine similarity above which two tools are
     #                       treated as duplicates (stage 1)
     #   group/category/
     #     domain          — agglomerative distance cutoffs per level
-    #   discriminability  — sibling description score below which we warn
-    #   min_recall        — hard floor for recall@k; below this, build fails
     thresholds: dict[str, float] = field(default_factory=lambda: {
         "near_dup": 0.97,
         "group": 0.30,
         "category": 0.45,
         "domain": 0.70,
-        "discriminability": 0.4,
-        "min_recall": 0.6,
     })
 
     # Outer chunk size for stage 2 — unit of work between cache flushes.
     enrich_batch_size: int = 20
-    # Synthetic queries per tool for the recall benchmark. Higher is more
-    # robust but linearly more expensive at eval time.
-    synthetic_queries_per_tool: int = 5
-    # Top-k depth for recall@k measurement.
+    # Top-k depth for retrieval. Read by `rebuild/` quality scoring.
     recall_k: int = 30
-    # Beam width used by the recall benchmark traversal. Higher = more
-    # exhaustive (better recall, more compute). Default 2 matches historical
-    # behavior; raise to 3-4 once L2 has multiple categories.
-    recall_beam: int = 2
-    # When set, the recall benchmark pulls ``rerank_k`` candidates from the
-    # traverser and reranks down to ``recall_k`` via per-tool MaxSim. ``None``
-    # disables reranking and keeps the historical single-vector behavior.
-    rerank_k: int | None = None
     # Disk cache directory — provider caches live under this path.
     cache_dir: str = "data/cache"
 
@@ -159,11 +144,7 @@ def load_config(path: str | Path) -> Config:
     if "thresholds" in data:
         c.thresholds = {**c.thresholds, **{k: float(v) for k, v in data["thresholds"].items()}}
     c.enrich_batch_size = int(data.get("enrich_batch_size", c.enrich_batch_size))
-    c.synthetic_queries_per_tool = int(data.get("synthetic_queries_per_tool", c.synthetic_queries_per_tool))
     c.recall_k = int(data.get("recall_k", c.recall_k))
-    c.recall_beam = int(data.get("recall_beam", c.recall_beam))
-    if "rerank_k" in data:
-        c.rerank_k = data["rerank_k"] if data["rerank_k"] is None else int(data["rerank_k"])
     c.cache_dir = data.get("cache_dir", c.cache_dir)
     c.build_providers()
     return c

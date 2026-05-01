@@ -26,7 +26,7 @@
   "baseline": {
     "snapshot": "data/snapshots/raw-tools/v7",
     "recall_at_10_beam3": 0.917,
-    "miss_breakdown": "cat_391687b6 alone produces 11/27 misses; flagged by validator as low-discriminability vs cat_c224869d and cat_246c3a14"
+    "miss_breakdown": "cat_391687b6 alone produces 11/27 misses; sibling clusters cat_c224869d and cat_246c3a14 are too close in embedding space"
   },
   "design": {
     "stage": "Stage 4 (cluster_upward) — store M centroids per node instead of 1",
@@ -40,8 +40,8 @@
     "backwards_compat": "If node.centroids is None, traverser uses node.embedding as today — old snapshots keep working."
   },
   "measurement": {
-    "metric": "recall@10 on the 180-query synthetic eval set, plus per-category miss-rate diagnostic",
-    "command": "Rebuild stages 4,5; uv run scripts/stage_validate.py --run raw-tools",
+    "metric": "recall@10 on the natural-language eval corpus, plus per-category miss-rate diagnostic",
+    "command": "Rebuild stages 4 and freeze; uv run scripts/eval_real_cases.py --run raw-tools --k 10 --decompose",
     "ablation": [
       "single centroid (v7 baseline)",
       "M=2 centroids per inner node",

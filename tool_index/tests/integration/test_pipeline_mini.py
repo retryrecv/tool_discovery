@@ -4,7 +4,7 @@ from tool_index.pipeline import build_tree_index
 
 
 def test_mini_pipeline_builds_valid_tree(config, mini_tools, tmp_path):
-    tree = build_tree_index(mini_tools, config, out_root=tmp_path / "snapshots", strict=False)
+    tree = build_tree_index(mini_tools, config, out_root=tmp_path / "snapshots")
 
     # Depth = 4 or 5 (root + L1 [+ L2] + L3 + tool leaf). With the mini fixture
     # there are only a handful of coarse domains so the orchestrator may relabel
@@ -35,4 +35,3 @@ def test_mini_pipeline_builds_valid_tree(config, mini_tools, tmp_path):
     vdir = tmp_path / "snapshots" / tree.version
     assert (vdir / "tree.json").exists()
     assert (vdir / "build_trace.json").exists()
-    assert (vdir / "seed_eval_set.jsonl").exists()

@@ -14,8 +14,6 @@ STAGES = [
     "stage_normalize.py",
     "stage_enrich.py",
     "stage_cluster.py",
-    "stage_synth_queries.py",
-    "stage_validate.py",
     "stage_freeze.py",
 ]
 

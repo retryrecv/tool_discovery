@@ -17,7 +17,7 @@
       "Leaf-parent step keeps using the parent's own embedding for tool-score collection (do not multi-vectorize the leaf step \u2014 that is Direction 1's job)",
       "Add unit test: a tree where a node's description embedding is far from query but one child is close \u2014 assert the node now wins the frontier",
       "Add unit test: empty children list falls back to node.embedding cosine (no regression for leaf-parent groups)",
-      "Re-run scripts/stage_validate.py --run raw-tools and assert recall@10 >= 0.97 (baseline 0.917 -> measured 0.978)"
+      "Re-run scripts/eval_real_cases.py --run raw-tools --k 10 --decompose and assert recall@10 >= 0.97 (baseline 0.917 -> measured 0.978)"
     ],
     "refers": [
       "0::0::ColBERT introduces MaxSim over multi-vectors as the scoring rule for late interaction \u2014 we apply the same operator at the inner-node level instead of the token level",
@@ -41,7 +41,7 @@
       "Add retrieval/rerank.py with rerank_tools(query_emb, candidates, tool_vectors_by_id) -> ranked tool ids using MaxSim",
       "Pre-embed each tool's intent_phrase + example_queries once at startup; persist via the existing DiskCache so warm starts are free",
       "Extend retrieve() with rerank_k parameter (default = k); when rerank_k > k, pull rerank_k candidates and apply rerank_tools",
-      "Wire validation/recall_benchmark.py to accept rerank_k; default keeps current behavior",
+      "Wire scripts/eval_real_cases.py to accept rerank_k; default keeps current behavior",
       "Add unit test: a tool whose intent_phrase embedding is far from query but one of its example_query embeddings is close \u2014 assert reranker promotes it",
       "Re-run validate stacked on Direction 3; assert recall@10 >= 0.99 (measured 0.994 = 179/180 hits)"
     ],

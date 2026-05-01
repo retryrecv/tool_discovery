@@ -6,7 +6,7 @@ level (groups, L3) it collects tool IDs ranked by the parent group's
 score — simple but effective.
 
 Used by:
-    • ``validation/recall_benchmark.py`` — the single gate for tree quality.
+    • ``scripts/eval_real_cases.py`` — the external quality gate.
     • External consumers as a reference implementation. Real production
       retrieval would likely add per-tool re-ranking at the final step.
 """

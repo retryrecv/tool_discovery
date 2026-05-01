@@ -28,12 +28,12 @@
     "files_to_touch": [
       "src/tool_index/retrieval/rerank.py (NEW)",
       "src/tool_index/retrieval/traverser.py (extend retrieve to return top-2k when rerank=True)",
-      "src/tool_index/validation/recall_benchmark.py (optional rerank flag for A/B)"
+      "scripts/eval_real_cases.py (optional rerank flag for A/B)"
     ]
   },
   "measurement": {
-    "metric": "recall@10 on the 180-query synthetic eval set",
-    "command": "uv run scripts/stage_validate.py --run raw-tools",
+    "metric": "recall@10 on the natural-language eval corpus",
+    "command": "uv run scripts/eval_real_cases.py --run raw-tools --k 10 --decompose",
     "ablation": [
       "beam=3 no rerank (baseline)",
       "beam=3 + sentence-MaxSim rerank",

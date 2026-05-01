@@ -2,7 +2,7 @@
 
 Snapshot I/O. Snapshots are immutable once written.
 
-- `snapshot.py` — `write_snapshot(tree, path)` / `read_snapshot(path)`. Writes `tree.json`, `embeddings.json`, `build_trace.json`, `seed_eval_set.jsonl`.
+- `snapshot.py` — `write_snapshot(tree, path)` / `read_snapshot(path)`. Writes `tree.json`, `embeddings.json`, `build_trace.json`.
 - `formats.py` — JSON (de)serializers for schema types.
 - `versioning.py` — snapshot schema version constant + migration hooks.
 

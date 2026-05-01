@@ -23,16 +23,16 @@ D1 currently lives only as `scripts/eval_colbert_rerank.py` on `explore/colbert-
 1. Create `src/tool_index/retrieval/rerank.py` with `rerank_tools(query_emb, candidate_ids, tool_vectors_by_id, k) -> list[str]`.
 2. Add `precompute_tool_vectors(enrichments, embedder, cache) -> dict[str, list[list[float]]]` (one-time pre-embed of intent_phrase + example_queries per tool).
 3. Extend `retrieve()` signature with optional `rerank_k`, `tool_vectors`; default `rerank_k=None` keeps existing behavior.
-4. Extend `validation/recall_benchmark.py` to accept and thread `rerank_k`/`tool_vectors`.
+4. Extend `scripts/eval_real_cases.py` to accept and thread `rerank_k`/`tool_vectors`.
 5. Add the rerank knob to `Config` + `_pipeline_config.py` (default off so existing snapshots stay reproducible).
 6. Add unit tests called out in `explore-direction1-colbert-leaf-rerank.steps[4]`.
 7. Append D1 entry from `proposed_tasks.json` to `tasks.json` with `passes: true`.
-8. Run full suite + `scripts/stage_validate.py --run raw-tools` with rerank on; assert recall >= 0.99.
+8. Run full suite + `scripts/eval_real_cases.py --run raw-tools --k 10 --decompose` with rerank on; assert simple recall >= 0.99.
 9. Commit: "Promote Direction 1: ColBERT-style leaf reranker (recall 0.978 -> 0.994 stacked)".
 
 ### Step 3 — clean up
 
-1. Move `relabel_low_discriminability.py` and `expand_queries.py` into `scripts/explore/` (they were spike-only and shouldn't pollute the main scripts dir).
+1. Move `expand_queries.py` into `scripts/explore/` (it was spike-only and shouldn't pollute the main scripts dir).
 2. Mark `explore/direction2_doc2query.json` with `"status": "archived"` and a `"result"` block citing the −0.150 regression.
 3. Remove the four worktrees with `git worktree remove ../tds-{doc2query,multivector,colbert,stack}` once their branches are merged or explicitly archived.
 4. Keep `explore/results.md` as the postmortem record on `main`.

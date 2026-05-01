@@ -1,4 +1,4 @@
-"""End-to-end build orchestrator — runs the six stages and assembles a `Tree`.
+"""End-to-end build orchestrator — runs the build stages and assembles a `Tree`.
 
 `build_tree_index` is the one public entrypoint consumers should use. The
 CLI, tests, and the verification script all call it. Individual stages
@@ -12,8 +12,7 @@ Stage flow:
     3. cluster_tools_into_groups  (leaves → L3)
     4a. cluster_upward       (L3 → L2)
     4b. cluster_upward       (L2 → L1), OR relabel L2 as L1 if too few
-    5. validate_tree         — structural + discriminability + recall
-    6. freeze                — write immutable snapshot
+    5. freeze                — write immutable snapshot
 """
 from __future__ import annotations
 from pathlib import Path
@@ -27,20 +26,10 @@ from .stage1_normalize import normalize_and_dedupe
 from .stage2_enrich import enrich_all
 from .stage3_cluster_leaves import cluster_tools_into_groups
 from .stage4_cluster_upward import cluster_upward
-from .stage5_validate import validate_tree
 from .stage6_freeze import freeze
 
 
 log = get_logger(__name__)
-
-
-class ValidationError(Exception):
-    """Raised from `build_tree_index` when ``strict=True`` and stage 5 fails.
-
-    The message is a ``"; "``-joined concatenation of
-    `ValidationReport.errors` so log output stays on one line.
-    """
-    pass
 
 
 def _register_all(tree: Tree, nodes: list[Node], parent_id: str) -> None:
@@ -105,7 +94,6 @@ def build_tree_index(
     config: Config,
     *,
     out_root: str | Path = "data/snapshots",
-    strict: bool = True,
 ) -> Tree:
     """Build and freeze a tool index from raw tool definitions.
 
@@ -115,20 +103,13 @@ def build_tree_index(
             (at minimum ``name`` + some description of the tool's behavior).
         config: A fully-built `tool_index.config.Config` — its providers
             (``enricher_llm``, ``labeler_llm``, ``judge_llm``, ``embedder``,
-            ``cache``) must already be instantiated. Pass ``strict=False``
-            if you want validation failures to be reported but not raised.
-        out_root: Directory where stage 6 will write the versioned snapshot
-            subdirectory (``<out_root>/<version>/``).
-        strict: If True (default), a failed `ValidationReport` aborts the
-            build via `ValidationError`. If False, the tree is frozen
-            regardless and the failure is recorded in the build trace.
+            ``cache``) must already be instantiated.
+        out_root: Directory where the freeze stage will write the versioned
+            snapshot subdirectory (``<out_root>/<version>/``).
 
     Returns:
-        The frozen `Tree`, with ``version`` updated by stage 6 to the final
-        immutable version string.
-
-    Raises:
-        ValidationError: ``strict=True`` and stage 5 reported errors.
+        The frozen `Tree`, with ``version`` updated by the freeze stage to
+        the final immutable version string.
     """
     # Stage 1 — normalize + dedupe near-identical tools.
     log.info("Stage 1: normalize & dedupe (%d raw)", len(raw_tools))
@@ -185,28 +166,8 @@ def build_tree_index(
     categories_separate = categories is not domains
     tree = assemble_tree(descriptors, groups, categories, domains, categories_separate, config.embedder)
 
-    # Stage 5 — validate against the intended orchestrator shape. The build
-    # supports two valid depths:
-    #   5: root → domain → category → group → tool
-    #   4: root → domain(relabelled category) → group → tool
-    log.info("Stage 5: validate")
-    expected_depth = 5 if categories_separate else 4
-    report = validate_tree(
-        tree, enrichments, config.embedder, config.judge_llm,
-        labeler_llm=config.labeler_llm,
-        fanout=config.fanout,
-        expected_depth=expected_depth,
-        discriminability_threshold=config.thresholds["discriminability"],
-        synthetic_per_tool=config.synthetic_queries_per_tool,
-        recall_k=config.recall_k,
-        min_recall=config.thresholds["min_recall"],
-    )
-    log.info("Stage 5: recall@%d = %.3f, passed=%s", config.recall_k, report.recall_at_k, report.passed)
-    if strict and not report.passed:
-        raise ValidationError("; ".join(report.errors))
-
-    # Stage 6 — write the snapshot and bump ``version``.
-    log.info("Stage 6: freeze")
-    frozen = freeze(tree, report, config, out_root)
-    log.info("Stage 6: frozen as %s", frozen.version)
+    # Freeze — write the snapshot and bump ``version``.
+    log.info("Freeze stage: writing snapshot")
+    frozen = freeze(tree, config, out_root)
+    log.info("Freeze stage: frozen as %s", frozen.version)
     return frozen

@@ -1,6 +1,6 @@
 # retrieval
 
-Minimal top-down traverser. Used by `validation/recall_benchmark.py` and as the reference implementation for downstream consumers.
+Minimal top-down traverser. Used by `scripts/eval_real_cases.py` and as the reference implementation for downstream consumers.
 
 - `traverser.py` — `traverse(tree, query, k)` → ranked tool IDs. Walks L1 → L2 → L3 → tools, keeping top-k at each level.
 

@@ -40,8 +40,8 @@
     "alternative_hyde": "If Doc2Query under-delivers, try HyDE on the query side: embed an LLM-generated hypothetical tool description for each user query before traversal. Lower indexing cost, higher per-query latency."
   },
   "measurement": {
-    "metric": "recall@10 on the 180-query synthetic eval set",
-    "command": "Re-run stages 2,3,4,5 with expansion on; uv run scripts/stage_validate.py --run raw-tools",
+    "metric": "recall@10 on the natural-language eval corpus",
+    "command": "Re-run stages 2,3,4 with expansion on; uv run scripts/eval_real_cases.py --run raw-tools --k 10 --decompose",
     "ablation": [
       "no expansion (v7 baseline)",
       "Doc2Query N=3",
@@ -54,5 +54,5 @@
     "LLM cost: N expansions per tool; mitigated by cache and small catalog (~90 tools).",
     "Over-expansion can blur a tool's centroid into neighbors — tune N down if discriminability warnings increase."
   ],
-  "decision_rule": "Promote if recall >= 0.94 AND low-discriminability pair count does not grow vs v7. Cheapest direction to try first."
+  "decision_rule": "Promote if recall >= 0.94. Cheapest direction to try first."
 }

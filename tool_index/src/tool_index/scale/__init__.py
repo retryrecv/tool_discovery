@@ -8,7 +8,6 @@ Modules:
     sharded_cache    — DiskCache wrapper that partitions by hash prefix
     async_enrich     — concurrent stage 2 (semaphore-bounded asyncio)
     ann_neighbors    — FAISS/HNSW neighbor graph (with NumPy fallback)
-    sampled_judge    — discriminability with capped pairs per parent
     incremental      — content-hash per tool; pick the changed subset only
 
 Each module ships with a fake/fallback path so tests stay offline and
@@ -18,7 +17,6 @@ requirements.
 from .sharded_cache import ShardedDiskCache
 from .async_enrich import enrich_all_async, AsyncEnrichConfig
 from .ann_neighbors import build_neighbor_graph, NeighborConfig
-from .sampled_judge import sample_pairs, SampleStrategy
 from .incremental import (
     tool_content_hash,
     diff_descriptors,
@@ -48,7 +46,6 @@ __all__ = [
     "ShardedDiskCache",
     "enrich_all_async", "AsyncEnrichConfig",
     "build_neighbor_graph", "NeighborConfig",
-    "sample_pairs", "SampleStrategy",
     "tool_content_hash", "diff_descriptors", "DescriptorDiff",
     "plan_incremental_rebuild", "IncrementalPlan",
     "SoftClusterConfig", "assign_soft", "assignment_entropy",
@@ -57,3 +54,4 @@ __all__ = [
     "reconstruction_residuals",
     "EMRefineConfig", "build_kmeans_centroids", "em_refine",
 ]
+

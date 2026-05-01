@@ -41,8 +41,7 @@ class Enrichment:
     synonyms: list[str] = field(default_factory=list)
 
     # Realistic natural-language queries a user might ask that this tool
-    # should answer. Fed into the embedding and re-used in stage 5 as seed
-    # queries for the recall benchmark (see `validation/synthetic_queries.py`).
+    # should answer. Fed into the embedding alongside the intent phrase.
     example_queries: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
