@@ -13,3 +13,4 @@ See `tool_index/AGENTS.md` for build/test/dev commands.
 
 - Keep `tool_index/` self-contained: pyproject, tests, data, and scripts all live inside it.
 - Don't introduce top-level Python files at this root — add them under `tool_index/src/tool_index/` or `tool_index/scripts/`.
+- Keep root-level notes lightweight; durable project guidance belongs in this file or `tool_index/AGENTS.md`.
