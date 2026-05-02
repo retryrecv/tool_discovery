@@ -137,58 +137,11 @@
     "passes": true
   },
   {
-    "id": "stage5-structural-validation",
-    "priority": 10,
-    "category": "functional",
-    "description": "Stage 5 structural validator checks parent/child integrity and depth bounds",
-    "depends_on": [
-      "stage4-upward-clustering-to-l1"
-    ],
-    "steps": [
-      "Build a tree via Stages 1\u20134 on mini_tools",
-      "Run validation.structural.validate_structure on the tree",
-      "Verify it returns a report with errors=[] for a well-formed tree"
-    ],
-    "passes": true
-  },
-  {
-    "id": "stage5-sibling-discriminability",
-    "priority": 11,
-    "category": "functional",
-    "description": "Stage 5 sibling discriminability check flags overlapping sibling descriptions",
-    "depends_on": [
-      "stage5-structural-validation"
-    ],
-    "steps": [
-      "Run validation.discriminability.check_siblings on a built tree",
-      "Verify it returns per-parent cosine-similarity scores for sibling titles",
-      "Verify scores below the configured threshold produce warnings in the report"
-    ],
-    "passes": true
-  },
-  {
-    "id": "stage5-synthetic-recall-benchmark",
-    "priority": 12,
-    "category": "functional",
-    "description": "Stage 5 generates synthetic queries and measures recall@k against the tree",
-    "depends_on": [
-      "stage5-structural-validation"
-    ],
-    "steps": [
-      "Run validation.synthetic_queries.generate on the tree with FakeLLM",
-      "Run validation.recall_benchmark.evaluate with the generated queries",
-      "Verify the report contains recall@1, recall@5, recall@10 numeric values"
-    ],
-    "passes": true
-  },
-  {
     "id": "stage6-freeze-snapshot",
     "priority": 13,
     "category": "functional",
     "description": "Stage 6 writes an immutable versioned snapshot with tree.json, build_trace.json, seed_eval_set.jsonl",
-    "depends_on": [
-      "stage5-structural-validation"
-    ],
+    "depends_on": [],
     "steps": [
       "Run stage6_freeze.freeze on a validated tree with out_root=<tmp>/snapshots",
       "Verify <tmp>/snapshots/<version>/tree.json exists",
@@ -222,7 +175,6 @@
       "stage2-enrich-adds-intent-and-io",
       "stage3-leaf-clustering",
       "stage4-upward-clustering-to-l1",
-      "stage5-structural-validation",
       "stage6-freeze-snapshot"
     ],
     "steps": [
@@ -309,21 +261,6 @@
     "passes": true
   },
   {
-    "id": "orchestrator-strict-mode-raises-on-validation-failure",
-    "priority": 21,
-    "category": "error-handling",
-    "description": "build_tree_index(strict=True) raises ValidationError when Stage 5 reports errors",
-    "depends_on": [
-      "orchestrator-end-to-end-mini"
-    ],
-    "steps": [
-      "Construct an input guaranteed to produce a structural violation (e.g. one tool)",
-      "Run build_tree_index(..., strict=True)",
-      "Verify ValidationError is raised and no snapshot is written"
-    ],
-    "passes": true
-  },
-  {
     "id": "unit-tests-pass",
     "priority": 22,
     "category": "functional",
@@ -348,318 +285,6 @@
     "steps": [
       "Run pytest tests/integration/test_pipeline_mini.py -x from tool_index/",
       "Verify exit code 0"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase1-customer-snapshot-layout",
-    "priority": 24,
-    "category": "production",
-    "description": "router.layout exposes per-customer snapshot dirs with active.json pointer",
-    "depends_on": [
-      "stage6-freeze-snapshot"
-    ],
-    "steps": [
-      "CustomerLayout.for_customer creates root/<cid>/",
-      "write_active/read_active round-trip a version string",
-      "list_versions returns sorted v<N> dirs"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase1-quality-score",
-    "priority": 25,
-    "category": "production",
-    "description": "router.quality.compute_quality_score scores recall@k against samples.jsonl",
-    "depends_on": [
-      "phase1-customer-snapshot-layout",
-      "retrieval-traverser-routes-query"
-    ],
-    "steps": [
-      "Empty samples \u2192 score 1.0",
-      "Hits counted across multi-correct rows",
-      "Misses recorded with retrieved top-k"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase1-rollback-gate",
-    "priority": 26,
-    "category": "production",
-    "description": "router.promotion.promote_if_better only flips active.json when within epsilon",
-    "depends_on": [
-      "phase1-quality-score"
-    ],
-    "steps": [
-      "First snapshot always promotes",
-      "Within-epsilon dip still promotes",
-      "Out-of-tolerance drop rolls back, candidate quality file persisted"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase1-request-telemetry",
-    "priority": 27,
-    "category": "production",
-    "description": "router.telemetry appends per-customer JSONL with schema_version",
-    "depends_on": [
-      "phase1-customer-snapshot-layout"
-    ],
-    "steps": [
-      "RouteRecord.new fills request_id and UTC timestamp",
-      "RequestLogger appends to <cid>/requests/<date>.jsonl",
-      "Concurrent appends produce valid JSONL"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase1-snapshot-registry",
-    "priority": 28,
-    "category": "production",
-    "description": "router.registry hot-loads active snapshot, swaps on active.json mtime change",
-    "depends_on": [
-      "phase1-customer-snapshot-layout"
-    ],
-    "steps": [
-      "First get loads from disk",
-      "Second get with unchanged mtime returns cache",
-      "Updated active.json triggers re-load"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase1-fastapi-route-endpoint",
-    "priority": 29,
-    "category": "production",
-    "description": "POST /route returns top-k tool ids and writes telemetry",
-    "depends_on": [
-      "phase1-snapshot-registry",
-      "phase1-request-telemetry"
-    ],
-    "steps": [
-      "uvicorn tool_index.router.service:app boots",
-      "POST /route with valid customer returns RouteResponse",
-      "Unknown customer returns 404"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase1-promote-script",
-    "priority": 30,
-    "category": "production",
-    "description": "scripts/promote_snapshot.py exits 0 on promote, 2 on rollback",
-    "depends_on": [
-      "phase1-rollback-gate"
-    ],
-    "steps": [
-      "Run --customer X --version vN against samples.jsonl",
-      "Exit 0 promotes, exit 2 rolls back",
-      "quality/<version>.json written either way"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase2-sessionize-by-explicit-id",
-    "priority": 31,
-    "category": "production",
-    "description": "feedback.sessionize groups records by explicit session_id",
-    "depends_on": [
-      "phase1-request-telemetry"
-    ],
-    "steps": [
-      "Records sharing session_id collapse to one Session",
-      "Different session_ids yield separate Sessions",
-      "Customers stay separate"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase2-sessionize-by-time-gap",
-    "priority": 32,
-    "category": "production",
-    "description": "feedback.sessionize splits implicit sessions on time gap",
-    "depends_on": [
-      "phase2-sessionize-by-explicit-id"
-    ],
-    "steps": [
-      "Records within gap_seconds stay in one session",
-      "Gap above threshold starts a new session"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase2-heuristics-retry",
-    "priority": 33,
-    "category": "production",
-    "description": "feedback.heuristics labels rapid retry of similar query as NEGATIVE",
-    "depends_on": [
-      "phase2-sessionize-by-explicit-id"
-    ],
-    "steps": [
-      "Same query within retry_seconds with similarity above threshold",
-      "Label polarity is negative with reason 'retry'"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase2-heuristics-followup-tool-switch",
-    "priority": 34,
-    "category": "production",
-    "description": "Following request that picks different tool for similar query labels first NEGATIVE",
-    "depends_on": [
-      "phase2-sessionize-by-explicit-id"
-    ],
-    "steps": [
-      "Two related queries with different routed_tool_id",
-      "First record labeled negative with reason 'switched tool'"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase2-heuristics-abandonment-and-positive",
-    "priority": 35,
-    "category": "production",
-    "description": "No follow-up yields UNKNOWN; unrelated follow-up yields POSITIVE",
-    "depends_on": [
-      "phase2-sessionize-by-explicit-id"
-    ],
-    "steps": [
-      "Single-record session yields UNKNOWN",
-      "Dissimilar follow-up yields POSITIVE with low confidence"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase2-feedback-writer",
-    "priority": 36,
-    "category": "production",
-    "description": "feedback.writer.FeedbackWriter writes per-customer per-day jsonl",
-    "depends_on": [
-      "phase2-heuristics-retry"
-    ],
-    "steps": [
-      "Records partitioned by date and customer",
-      "Overwrite mode replaces; default appends"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase2-process-day-pipeline",
-    "priority": 37,
-    "category": "production",
-    "description": "feedback.pipeline.process_day reads requests, sessionizes, labels, writes",
-    "depends_on": [
-      "phase2-feedback-writer"
-    ],
-    "steps": [
-      "Run on a seeded day produces expected counts",
-      "Re-run idempotent (overwrite=True default)",
-      "No requests yields empty summary"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase2-process-feedback-script",
-    "priority": 38,
-    "category": "production",
-    "description": "scripts/process_feedback.py accepts --date today/yesterday/YYYY-MM-DD",
-    "depends_on": [
-      "phase2-process-day-pipeline"
-    ],
-    "steps": [
-      "--date today resolves to UTC date",
-      "--date yesterday resolves to UTC date - 1",
-      "Output JSON summary printed"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase3-catalog-hash-stable",
-    "priority": 39,
-    "category": "production",
-    "description": "rebuild.catalog_hash is order-independent and example-normalized",
-    "depends_on": [
-      "package-installs"
-    ],
-    "steps": [
-      "Same tools in different order produce the same hash",
-      "Doc edit changes hash",
-      "Examples in different order produce the same hash"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase3-feedback-eval-adapter",
-    "priority": 40,
-    "category": "production",
-    "description": "rebuild.eval_adapter filters by polarity/confidence and dedupes by query",
-    "depends_on": [
-      "phase2-process-day-pipeline"
-    ],
-    "steps": [
-      "UNKNOWN dropped, low-confidence dropped",
-      "Duplicate query keeps the most recent label"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase3-autotune-grid",
-    "priority": 41,
-    "category": "production",
-    "description": "rebuild.autotune sweeps configs and ranks by pos minus lambda*neg",
-    "depends_on": [
-      "phase3-feedback-eval-adapter"
-    ],
-    "steps": [
-      "Default grid has 27 points",
-      "score_eval blends positive/negative hit rates",
-      "Best objective ranks first"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase3-snapshot-diff",
-    "priority": 42,
-    "category": "production",
-    "description": "rebuild.diff reports added/removed/relabeled nodes between two snapshots",
-    "depends_on": [
-      "stage6-freeze-snapshot"
-    ],
-    "steps": [
-      "Added node ids detected",
-      "Removed node ids detected",
-      "Description change recorded as relabeled"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase3-rebuild-orchestrator",
-    "priority": 43,
-    "category": "production",
-    "description": "rebuild.rebuild_customer skips when no catalog change AND feedback delta below threshold",
-    "depends_on": [
-      "phase3-catalog-hash-stable",
-      "phase1-rollback-gate"
-    ],
-    "steps": [
-      "First run rebuilds; promotion runs",
-      "Second run with no changes returns skipped",
-      "Forced rebuild runs even when unchanged"
-    ],
-    "passes": true
-  },
-  {
-    "id": "phase3-daily-rebuild-script",
-    "priority": 44,
-    "category": "production",
-    "description": "scripts/daily_rebuild.py exit codes 0/2/3 reflect promotion/rollback/skip",
-    "depends_on": [
-      "phase3-rebuild-orchestrator"
-    ],
-    "steps": [
-      "No-change run exits 3",
-      "Promoted run exits 0",
-      "Rejected run exits 2"
     ],
     "passes": true
   },
@@ -713,9 +338,7 @@
     "priority": 48,
     "category": "scale",
     "description": "scale.sample_pairs caps O(n^2) judge calls, deterministic, closest-first",
-    "depends_on": [
-      "stage5-sibling-discriminability"
-    ],
+    "depends_on": [],
     "steps": [
       "Returns at most max_pairs",
       "Closest pair surfaced first",
@@ -729,9 +352,7 @@
     "priority": 49,
     "category": "scale",
     "description": "scale.plan_incremental_rebuild identifies changed tools and ancestor chain",
-    "depends_on": [
-      "phase3-catalog-hash-stable"
-    ],
+    "depends_on": [],
     "steps": [
       "No prev tree forces full rebuild",
       "Change fraction at or above threshold forces full rebuild",
@@ -799,10 +420,7 @@
     "priority": 52,
     "category": "hill-research",
     "description": "Phase 2 feedback emits per-level positive labels by walking the routing path, not just the final tool",
-    "depends_on": [
-      "phase2-process-day-pipeline",
-      "phase1-fastapi-route-endpoint"
-    ],
+    "depends_on": [],
     "papers": [
       "1:HILL \u2014 Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1)"
     ],
@@ -920,9 +538,7 @@
     "priority": 56,
     "category": "retrieval",
     "description": "Multi-vector inner-node scoring in retrieve(): score = max(cos(query, node.embedding), max over child.embedding). Recovers recall lost when an inner node's description is too broad to discriminate against siblings.",
-    "depends_on": [
-      "stage5-validate-tree-passes-on-mini-fixture"
-    ],
+    "depends_on": [],
     "papers": [
       "1:ColBERT \u2014 Efficient and Effective Passage Search via Contextualized Late Interaction over BERT (Khattab and Zaharia, arXiv 2004.12832)",
       "2:HILL \u2014 Hierarchical Index Learning for Foundation Retrieval Models (Meta Ads, arXiv 2604.12965v1) Section 3.2"
@@ -982,17 +598,53 @@
       "snapshot": "raw-tools (99 tools, post-uncomment)",
       "eval_script": "scripts/eval_real_cases.py --run raw-tools --k 10 --decompose",
       "metrics": [
-        {"name": "simple recall@10", "baseline": 0.980, "achieved": 1.000, "threshold": 0.97},
-        {"name": "complex set-recall@10", "baseline": 0.800, "achieved": 0.942, "threshold": 0.88},
-        {"name": "complex full-cover", "baseline": "31/50", "achieved": "43/50"}
+        {
+          "name": "simple recall@10",
+          "baseline": 0.98,
+          "achieved": 1.0,
+          "threshold": 0.97
+        },
+        {
+          "name": "complex set-recall@10",
+          "baseline": 0.8,
+          "achieved": 0.942,
+          "threshold": 0.88
+        },
+        {
+          "name": "complex full-cover",
+          "baseline": "31/50",
+          "achieved": "43/50"
+        }
       ],
       "decision_rule": "simple >= 0.97 AND complex >= 0.88",
       "decision_outcome": "PASS"
     },
     "alternatives_tried": [
-      {"id": "explore-decomp-with-l1-routing", "branch": "explore/decomp-routing", "status": "archived", "complex_recall": 0.917, "delta_vs_d4": -0.025, "why": "Tree has only 1 L1 -> routing degenerates to L2 restriction; wrong-area picks (28.5%) cut off recovery"},
-      {"id": "explore-hyde-per-step-decomposition", "branch": "explore/hyde-per-step", "status": "archived", "simple_recall": 0.940, "complex_recall": 0.908, "delta_vs_d4": "-0.060 simple, -0.034 complex", "why": "Tool intent_phrases are already paraphrases; hypothetical descriptions add vocabulary drift instead of bridging anything"},
-      {"id": "explore-adaptive-gated-decomposition", "branch": "explore/adaptive-gated", "status": "archived", "complex_recall": 0.867, "delta_vs_d4": -0.075, "why": "Spec committed to D5 as slow-path; D5's ceiling (0.917) was already below D4's floor; concentrated schema further degrades to 0.900 even at 100% fire rate"}
+      {
+        "id": "explore-decomp-with-l1-routing",
+        "branch": "explore/decomp-routing",
+        "status": "archived",
+        "complex_recall": 0.917,
+        "delta_vs_d4": -0.025,
+        "why": "Tree has only 1 L1 -> routing degenerates to L2 restriction; wrong-area picks (28.5%) cut off recovery"
+      },
+      {
+        "id": "explore-hyde-per-step-decomposition",
+        "branch": "explore/hyde-per-step",
+        "status": "archived",
+        "simple_recall": 0.94,
+        "complex_recall": 0.908,
+        "delta_vs_d4": "-0.060 simple, -0.034 complex",
+        "why": "Tool intent_phrases are already paraphrases; hypothetical descriptions add vocabulary drift instead of bridging anything"
+      },
+      {
+        "id": "explore-adaptive-gated-decomposition",
+        "branch": "explore/adaptive-gated",
+        "status": "archived",
+        "complex_recall": 0.867,
+        "delta_vs_d4": -0.075,
+        "why": "Spec committed to D5 as slow-path; D5's ceiling (0.917) was already below D4's floor; concentrated schema further degrades to 0.900 even at 100% fire rate"
+      }
     ],
     "depends_on": [
       "explore-direction1-colbert-leaf-rerank"
