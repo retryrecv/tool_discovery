@@ -1511,7 +1511,7 @@ raw_tools: list[RawTool] = [
     RawTool(name="calculator", signature="calculator(expression)", doc="Evaluate an arithmetic expression (supports +, -, *, /, parentheses)"),
     RawTool(name="unit_converter", signature="unit_converter(value, from, to)", doc="Convert a value between units: km/miles, kg/lbs, celsius/fahrenheit, liters/gallons"),
     RawTool(name="statistics", signature="statistics(numbers)", doc="Compute mean, median, and standard deviation from a list of numbers"),
-    RawTool(name="percentage_calc", signature="percentage_calc(mode, x, y)", doc="Calculate percentage: X% of Y, or what percentage X is of Y"),
+    RawTool(name="percentage_calc", signature="percentage_calc(mode, x, y)", doc="Calculate percentage: X% of Y, what percentage X is of Y, or a value's share/contribution of a total"),
     RawTool(name="url_parse", signature="url_parse(url)", doc="Parse a URL into its components: scheme, host, path, query params, and hash"),
     RawTool(name="http_get", signature="http_get(url)", doc="Perform an HTTP GET request to a URL and return the response body (stub — returns mock data)"),
     RawTool(name="encode_decode", signature="encode_decode(text, mode)", doc="Base64 or URL encode/decode a string"),
