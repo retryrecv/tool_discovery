@@ -1,12 +1,10 @@
 """`RawTool` — the input shape passed to `build_tree_index` and the stage scripts.
 
-Mirrors the ``ToolDefinition`` interface from the TypeScript catalogs in
-``data/rawTools/*.tools.ts``, flattened to the fields the Python pipeline
-actually needs. Stage 1 (`pipeline/stage1_normalize.py`) converts each
-`RawTool` into a `ToolDescriptor`; later stages never touch the raw dict.
+Stage 1 (`pipeline/stage1_normalize.py`) converts each `RawTool` into a
+`ToolDescriptor`; later stages never touch the raw dict.
 
 Lives in `schema/` (not `pipeline/`) so the generated catalog
-(`data/generateTools/tools.py`) can import it without pulling in the
+(`data/corpus/catalog.py`) can import it without pulling in the
 orchestrator.
 """
 from __future__ import annotations

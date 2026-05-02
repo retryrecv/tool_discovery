@@ -1,6 +1,6 @@
 """Evaluate recall@k against the hand-written natural-language test cases.
 
-Reads SIMPLE_CASES + COMPLEX_CASES from data/generateTools/test_cases.py.
+Reads SIMPLE_CASES + COMPLEX_CASES from data/corpus/eval_queries.py.
 Each case has a query string and a list of expected tool calls. We map
 each tool function (e.g. json_format) to its descriptor.id and then ask
 the productized D3+D1 retriever (multi-vector traverser + ColBERT-style
@@ -36,14 +36,14 @@ from tool_index.schema import Enrichment, Tree, ToolDescriptor
 
 
 def _load_test_cases(repo_root: Path) -> tuple[list[dict], list[dict]]:
-    # tools is already loaded by _pipeline_config under the
-    # "generateTools" package alias; reuse it so the relative import in
-    # test_cases.py resolves.
+    # catalog is already loaded by _pipeline_config under the
+    # "corpus" package alias; reuse it so the relative import in
+    # eval_queries.py resolves.
     spec = importlib.util.spec_from_file_location(
-        "generateTools.test_cases", repo_root / "data/generateTools/test_cases.py"
+        "corpus.eval_queries", repo_root / "data/corpus/eval_queries.py"
     )
     mod = importlib.util.module_from_spec(spec)
-    sys.modules["generateTools.test_cases"] = mod
+    sys.modules["corpus.eval_queries"] = mod
     spec.loader.exec_module(mod)
     return mod.SIMPLE_CASES, mod.COMPLEX_CASES
 

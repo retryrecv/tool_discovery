@@ -4,7 +4,7 @@ Test cases for tool_index retrieval evaluation — natural user queries.
 - 50 simple cases: one realistic user question/request → one function call
 - 50 complex cases: one realistic user question/request → 2+ function calls
 """
-from .tools import (
+from .catalog import (
     json_format, json_query, csv_parse, array_sort,
     get_current_datetime, date_diff, timezone_convert, day_of_week,
     calculator, unit_converter, statistics, percentage_calc,

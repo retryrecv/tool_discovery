@@ -9,7 +9,7 @@ Hierarchical Tool Index construction pipeline. Build stages:
 5. **Freeze** — immutable versioned snapshot.
 
 Tree quality is measured externally by `scripts/eval_real_cases.py`
-against the natural-language `test_cases.py` corpus — there is no
+against the natural-language `eval_queries.py` corpus — there is no
 in-pipeline validation step.
 
 ## Workspace
@@ -44,9 +44,8 @@ their own.
 - `tests/` — unit, integration, golden.
 - `configs/` — YAML configs (default/dev/prod).
 - `data/` — raw inputs, cache, snapshots (gitignored outputs).
-  - `data/rawTools/` — TS source catalogs (`*.tools.ts`).
-  - `data/generateTools/` — generated `tools.py` (the `raw_tools` list)
-    and `test_cases.py` (natural-language query fixtures).
+  - `data/corpus/` — `catalog.py` (the `raw_tools` list)
+    and `eval_queries.py` (natural-language query fixtures).
   - `data/cache/` — provider cache (LLM + embedding).
   - `data/snapshots/<run-name>/` — per-run intermediate stage files
     (`01_descriptors.json`, `02_enrichments.json`, `tree_draft.json`)

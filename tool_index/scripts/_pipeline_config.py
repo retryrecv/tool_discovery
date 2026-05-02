@@ -23,12 +23,12 @@ logging.basicConfig(
     force=True,
 )
 
-_spec = importlib.util.spec_from_file_location("tools", ROOT / "data/generateTools/tools.py")
+_spec = importlib.util.spec_from_file_location("catalog", ROOT / "data/corpus/catalog.py")
 _tools_mod = importlib.util.module_from_spec(_spec)
-_pkg = types.ModuleType("generateTools")
-_pkg.tools = _tools_mod
-sys.modules["generateTools"] = _pkg
-sys.modules["generateTools.tools"] = _tools_mod
+_pkg = types.ModuleType("corpus")
+_pkg.catalog = _tools_mod
+sys.modules["corpus"] = _pkg
+sys.modules["corpus.catalog"] = _tools_mod
 _spec.loader.exec_module(_tools_mod)
 
 raw_tools = _tools_mod.raw_tools
@@ -55,7 +55,6 @@ def make_config() -> Config:
     c.fanout["group"] = (1, 10)
     c.fanout["category"] = (1, 10)
     c.fanout["domain"] = (1, 20)
-    c.recall_k = 10
     return c
 
 
