@@ -9,3 +9,5 @@ data/snapshots/*
 !data/cache/.gitkeep
 !data/snapshots/.gitkeep
 .env
+ideas.md
+explore/*
