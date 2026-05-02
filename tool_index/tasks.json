@@ -591,7 +591,7 @@
     "status": "shipped",
     "owner": null,
     "source_branch": "explore/l2m-decomposition",
-    "landed_commit": "b7629ec",
+    "landed_commit": "bb2a0dd",
     "landed_on": "phase1-router",
     "landed_at": "2026-04-19",
     "evaluated_against": {
