@@ -10,8 +10,6 @@ from openai import AzureOpenAI
 load_dotenv()
 RESPONSE_MODEL = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME")
 EMBEDDING_MODEL = os.environ.get("AZURE_EMBEDDINGS_DEPLOYMENT_NAME")
-print("RESPONSE_MODEL:", RESPONSE_MODEL)
-print("EMBEDDING_MODEL:", EMBEDDING_MODEL)
 
 openAIClient = AzureOpenAI(
     api_key=os.environ.get("AZURE_OPENAI_API_KEY"),
@@ -24,18 +22,6 @@ openAIEmbeddingClient = AzureOpenAI(
     azure_endpoint=os.environ.get("AZURE_OPENAI_ENDPOINT"),
     api_version=os.environ.get("AZURE_OPENAI_API_VERSION"),
 )
-
-
-# def build_client():
-#     azure_endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
-#     azure_api_version = os.environ.get("AZURE_OPENAI_API_VERSION")
-#     azure_api_key = os.environ.get("AZURE_OPENAI_API_KEY")
-
-#     return AzureOpenAI(
-#         api_key=azure_api_key,
-#         azure_endpoint=azure_endpoint,
-#         api_version=azure_api_version,
-#     )
 
 
 def main() -> int:
