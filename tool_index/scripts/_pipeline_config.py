@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import importlib.util
 import logging
+import os
 import sys
 import types
 from pathlib import Path
@@ -14,7 +15,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).parent.parent
-load_dotenv(ROOT / ".env")
+load_dotenv(ROOT / ".env", override=True)
 
 logging.basicConfig(
     stream=sys.stderr,
@@ -37,9 +38,9 @@ from tool_index.config import Config
 from tool_index.providers import DiskCache, make_embedding
 from tool_index.providers.llm_anthropic import AnthropicLLMProvider
 
-PROXY_BASE_URL = "http://localhost:23333/api/anthropic"
-PROXY_API_KEY = "***REDACTED***"
-MODEL = "claude-haiku-4-5-20251001"
+PROXY_BASE_URL = os.environ["ANTHROPIC_PROXY_BASE_URL"]
+PROXY_API_KEY = os.environ["ANTHROPIC_PROXY_API_KEY"]
+MODEL = os.environ["ANTHROPIC_MODEL"]
 
 
 def make_config() -> Config:
