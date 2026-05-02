@@ -16,5 +16,4 @@ thresholds:
   domain: 0.7
 
 enrich_batch_size: 20
-recall_k: 30
 cache_dir: data/cache

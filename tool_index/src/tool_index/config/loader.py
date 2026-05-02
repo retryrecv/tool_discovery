@@ -69,8 +69,6 @@ class Config:
 
     # Outer chunk size for stage 2 — unit of work between cache flushes.
     enrich_batch_size: int = 20
-    # Top-k depth for retrieval. Read by `rebuild/` quality scoring.
-    recall_k: int = 30
     # Disk cache directory — provider caches live under this path.
     cache_dir: str = "data/cache"
 
@@ -140,7 +138,6 @@ def load_config(path: str | Path) -> Config:
     if "thresholds" in data:
         c.thresholds = {**c.thresholds, **{k: float(v) for k, v in data["thresholds"].items()}}
     c.enrich_batch_size = int(data.get("enrich_batch_size", c.enrich_batch_size))
-    c.recall_k = int(data.get("recall_k", c.recall_k))
     c.cache_dir = data.get("cache_dir", c.cache_dir)
     c.build_providers()
     return c
